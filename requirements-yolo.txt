@@ -1,0 +1,9 @@
+# OPTIONAL — deep-learning engine. Installs PyTorch (~2.5 GB).
+# Only needed to train on RDD2022 or to run a trained .pt model.
+#   pip install -r requirements-yolo.txt
+-r requirements.txt
+torch==2.5.1
+torchvision==0.20.1
+ultralytics==8.3.55
+pyyaml==6.0.2
+tqdm==4.67.1
