@@ -6,16 +6,25 @@ useful the moment it is installed, without a 2.5 GB PyTorch download or a
 trained checkpoint. The UI always states which engine produced a result.
 
 Pipeline
-    1. Segment the pavement region (asphalt is low-saturation and mid-dark, and
-       occupies the lower part of a forward-facing frame).
+    1. Segment the pavement region (asphalt is low-saturation, mid-dark and
+       textured, and occupies the lower part of a forward-facing frame).
     2. Potholes  — dark, compact, closed blobs that are markedly darker than
        their immediate surround.
     3. Cracks    — thin dark linear structures recovered with oriented black-hat
        morphology, then classified longitudinal / transverse by orientation.
     4. Alligator — cells where crack energy is high in *several* orientations
        at once, which is what fatigue cracking looks like.
-    5. Ravelling — pavement cells with high micro-texture variance but no
-       linear structure, i.e. lost aggregate rather than a crack.
+
+What it deliberately does NOT detect
+    Ravelling, rutting and edge break. A texture-variance ravelling detector was
+    built and then removed: measured across controlled test imagery, the local
+    texture statistics of sound and ravelled pavement were indistinguishable
+    (25th-percentile sigma 3.2 vs 3.1, maxima 15.0 vs 12.8). Any threshold that
+    caught real ravelling also flagged sound road, and the failure mode is the
+    expensive direction — recommending resurfacing for a pavement that does not
+    need it. These three classes stay in the taxonomy and are reported by the
+    trained neural engine, which learns them from labelled examples rather than
+    from a hand-picked statistic.
 
 Accuracy is well below a model trained on RDD2022; it is a baseline, and
 `training/` exists to replace it.
@@ -80,7 +89,8 @@ class CVDetector:
             crack_map, dets_cracks = _find_cracks(gray_eq, pavement, (w, h))
             dets += dets_cracks
             dets += _find_alligator(crack_map, pavement, (w, h))
-            dets += _find_ravelling(gray_raw, pavement, crack_map, (w, h))
+            # Ravelling is deliberately NOT detected here — see the module
+            # docstring. It is reported only by the trained neural engine.
 
         pav_px = max(1.0, float(pavement.sum()) / 255.0)
         for d in dets:
@@ -205,7 +215,14 @@ def _find_potholes(gray: np.ndarray, pavement: np.ndarray, wh) -> list[Detection
     diff = cv2.subtract(bg, gray)                       # positive where darker
     diff = cv2.bitwise_and(diff, diff, mask=pavement)
 
-    thr = max(14, int(np.percentile(diff[pavement > 0], 97.5)) if np.any(pavement) else 14)
+    # Adaptive, but bounded at both ends. A bare percentile is set by whatever
+    # the darkest few percent of the frame happens to be: one crack network or
+    # a shadowed kerb pushes it above the contrast of a genuine pothole, and
+    # every real cavity then falls below the threshold and is never seen. The
+    # cap keeps the test anchored to what "meaningfully darker than the road
+    # around it" actually means in grey levels.
+    pct = float(np.percentile(diff[pavement > 0], 96.0)) if np.any(pavement) else 20.0
+    thr = int(clamp(pct, 16.0, 46.0))
     dark = (diff >= thr).astype(np.uint8) * 255
 
     k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
@@ -433,74 +450,6 @@ def _find_alligator(crack_map: np.ndarray, pavement: np.ndarray, wh) -> list[Det
             x=(x * cell) / w, y=(y * cell) / h,
             w=(bw * cell) / w, h=(bh * cell) / h,
             notes=f"{cells} cells, crack density {mean_density * 100:.1f}%",
-        ))
-    return out
-
-
-# ----------------------------------------------------------------------
-# Stage 5 — ravelling
-# ----------------------------------------------------------------------
-def _find_ravelling(gray: np.ndarray, pavement: np.ndarray,
-                    crack_map: np.ndarray, wh) -> list[Detection]:
-    """Lost aggregate: rough micro-texture with no linear structure.
-
-    Sound asphalt photographs as fairly uniform. Ravelled asphalt is grainy.
-    The local-variance test finds that, and cells already claimed by cracking
-    are excluded so the same pixels are not reported twice.
-    """
-    w, h = wh
-    cell = max(32, w // 12)
-    gh, gw = h // cell, w // cell
-    if gh < 2 or gw < 2:
-        return []
-
-    f = gray.astype(np.float32)
-    mean = cv2.blur(f, (9, 9))
-    var = cv2.blur(f * f, (9, 9)) - mean * mean
-    std = np.sqrt(np.maximum(var, 0))
-
-    scores = np.zeros((gh, gw), np.float32)
-    for gy in range(gh):
-        for gx in range(gw):
-            sl = (slice(gy * cell, (gy + 1) * cell), slice(gx * cell, (gx + 1) * cell))
-            if pavement[sl].mean() < 170:
-                continue
-            if crack_map[sl].mean() / 255.0 > 0.02:      # cracking owns this cell
-                continue
-            scores[gy, gx] = float(std[sl].mean())
-
-    if not np.any(scores > 0):
-        return []
-
-    live = scores[scores > 0]
-    if live.size < 3:
-        return []
-    # Ravelling is a departure from *this road's* own texture, not an absolute
-    # number, so the threshold is set from the frame's own distribution.
-    base = float(np.median(live))
-    cut = max(base * 1.55, base + 6.0)
-
-    hot = (scores > cut).astype(np.uint8)
-    if hot.sum() < 2:
-        return []
-    n, labels, stats, _ = cv2.connectedComponentsWithStats(hot, 8)
-
-    out: list[Detection] = []
-    for i in range(1, n):
-        if stats[i, cv2.CC_STAT_AREA] < 2:
-            continue
-        x, y, bw, bh = (stats[i, cv2.CC_STAT_LEFT], stats[i, cv2.CC_STAT_TOP],
-                        stats[i, cv2.CC_STAT_WIDTH], stats[i, cv2.CC_STAT_HEIGHT])
-        rough = float(scores[labels == i].mean())
-        conf = clamp(0.24 + 0.40 * clamp((rough - cut) / max(6.0, cut * 0.6))
-                     + 0.22 * clamp((stats[i, cv2.CC_STAT_AREA] - 2) / 8.0))
-        if conf < 0.30:
-            continue
-        out.append(Detection(
-            code="RAV", confidence=round(conf, 3),
-            x=(x * cell) / w, y=(y * cell) / h,
-            w=(bw * cell) / w, h=(bh * cell) / h,
-            notes=f"texture sigma {rough:.1f} vs {base:.1f} baseline",
         ))
     return out
 

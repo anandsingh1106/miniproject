@@ -5,7 +5,11 @@ data/
 # Training artefacts
 runs/
 *.pt
-!requirements*.txt
+
+# npm packages. frontend/vendor/ IS committed (see scripts/vendor.js) so a
+# fresh clone runs with python alone — npm is only needed to update assets.
+node_modules/
+package-lock.json
 
 # Python
 __pycache__/
@@ -16,6 +20,8 @@ env/
 *.egg-info/
 .pytest_cache/
 .ruff_cache/
+.coverage
+htmlcov/
 
 # Editors / OS
 .vscode/

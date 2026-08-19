@@ -217,12 +217,19 @@ def allocate_budget(segments: list[dict], budget: float) -> dict:
 
     unfunded_critical = [s for s in deferred if s.get("band_code") == "P1"]
     total_required = sum(s["cost"] for s in scored)
+    # Two different numbers that are easy to conflate:
+    #   deferred_cost — what the unfunded work would cost to do.
+    #   shortfall     — how much *more* budget is needed to clear the backlog.
+    # They differ by whatever budget is left unspent because no remaining job
+    # fits in it. Showing one where the other belongs overstates the ask.
+    deferred_cost = sum(s["cost"] for s in deferred)
 
     return {
         "budget": budget,
         "allocated": spent,
         "remaining": max(0.0, budget - spent),
         "total_required": total_required,
+        "deferred_cost": deferred_cost,
         "shortfall": max(0.0, total_required - budget),
         "funded_ids": [s["id"] for s in funded],
         "deferred_ids": [s["id"] for s in deferred],

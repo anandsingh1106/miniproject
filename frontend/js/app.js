@@ -1,6 +1,9 @@
 /* Shell + hash router. */
 
-import { $, html, raw, meta, initTheme, toggleTheme, errorState, spinner } from './core.js';
+import {
+  $, html, raw, meta, initTheme, toggleTheme, errorState, spinner,
+  icon, paintIcons, wireHelp,
+} from './core.js';
 import { dashboardView } from './view-dashboard.js';
 import { analyzeView } from './view-analyze.js';
 import { networkView, segmentView } from './view-network.js';
@@ -58,10 +61,8 @@ function renderShell(engine) {
           <span class="dot" aria-hidden="true"></span>
           ${heuristic ? 'CV baseline' : 'Neural model'}
         </span>
-        <button class="icon-btn" id="theme-btn" title="Toggle theme" aria-label="Toggle colour theme">
-          ${raw(`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-            <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>`)}
-        </button>
+        <button class="icon-btn" id="theme-btn" title="Toggle light / dark theme"
+                aria-label="Toggle colour theme">${icon('moon-star')}</button>
       </div>
     </header>
     <main id="view"></main>`;
@@ -74,6 +75,8 @@ function renderShell(engine) {
     // Charts read colours from CSS at build time, so re-render after a swap.
     router();
   });
+
+  paintIcons($('#shell'));
 }
 
 function markActive(path) {
@@ -97,7 +100,12 @@ async function router() {
     console.error(err);
     view.innerHTML = errorState(err);
   }
-  if (mine === token) window.scrollTo({ top: 0 });
+  if (mine !== token) return;
+  // Views emit icon placeholders and help affordances as plain markup; both are
+  // activated here, once, rather than in every view.
+  paintIcons(view);
+  wireHelp(view);
+  window.scrollTo({ top: 0 });
 }
 
 window.addEventListener('hashchange', router);

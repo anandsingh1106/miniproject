@@ -159,7 +159,15 @@ RPI_WEIGHTS = {
 }
 
 # Traffic volume (AADT) treated as full exposure. The term saturates above this.
-AADT_SATURATION = 40000.0
+#
+# Calibrate this to the network being managed. It is set for Delhi NCR, whose
+# arterials genuinely carry six figures a day — Ring Road at Ashram is around
+# 185,000. At a tier-2 city's value of 40,000 every one of those roads pins at
+# 1.0 and the traffic term stops separating them, which removes the ranking
+# precisely where the busiest and most consequential roads compete. For a
+# smaller network, lower it: leaving it at 150,000 there would flatten a
+# genuinely busy road down toward the same score as a quiet one.
+AADT_SATURATION = 150000.0
 
 # --------------------------------------------------------------------------
 # Unit costs (INR per square metre of carriageway), typical 2024-25 schedule

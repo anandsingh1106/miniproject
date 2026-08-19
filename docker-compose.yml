@@ -1,0 +1,13 @@
+services:
+  roadlens:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      # Survey imagery, the SQLite database and any trained checkpoint persist
+      # here across container rebuilds.
+      - roadlens-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  roadlens-data:

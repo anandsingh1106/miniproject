@@ -1,53 +1,71 @@
 """Demo network seeding.
 
 A prioritisation tool is meaningless with one road in it — the whole point is
-the ranking across a network. This seeds 24 segments of a plausible municipal
-network so the dashboard, the budget optimiser and the analytics are populated
-on first run, before any image has been uploaded.
+the ranking across a network. This seeds 28 real Delhi and Ghaziabad road
+segments, with their actual locations and plausible traffic figures, so the
+dashboard, the budget optimiser and the analytics are populated on first run,
+before any image has been uploaded.
 
-Synthetic condition data is generated from a fixed seed, so the numbers are
-reproducible and everyone sees the same demo. Real inspections uploaded through
-the UI sit alongside these and are scored by exactly the same engine.
+The roads and their coordinates are real; the *condition* data is synthetic,
+generated from a fixed seed so the numbers are reproducible and everyone sees
+the same demo. Nothing here is a survey result. Real inspections uploaded
+through the UI sit alongside these and are scored by exactly the same engine.
 """
 from __future__ import annotations
 
 import json
 import random
+import re
 import uuid
 from datetime import datetime, timedelta, timezone
 
 from . import config, costing, db
 from .priority import SegmentContext, compute_rpi
 
-CITY = "Pune"
+CITY = "Delhi NCR"
 
-# name, ward, class, length_m, aadt, commercial %, lat, lon, years since resurface,
-# accidents, drainage, monsoon, emergency route, school zone, complaints
+# Delhi and Ghaziabad. Traffic volumes here are genuinely an order of magnitude
+# above a tier-2 city — Delhi's ring roads carry six figures a day — and the
+# monsoon term is driven less by rainfall than by drainage: NCR's problem is
+# short, intense bursts landing on carriageways with blocked or absent storm
+# drains, which is why several segments below are "moderate" monsoon but "poor"
+# drainage.
+#
+# name, ward/locality, city, class, length_m, aadt, commercial %, lat, lon,
+# years since resurface, accidents(3yr), drainage, monsoon, emergency route,
+# school zone, complaints
 NETWORK = [
-    ("Mumbai–Bengaluru Bypass, Warje", "Warje", "NH", 2400, 46000, 34, 18.4790, 73.8080, 7.5, 19, "fair", "high", True, False, 41),
-    ("Nagar Road, Yerawada", "Yerawada", "NH", 1800, 38000, 26, 18.5510, 73.8890, 6.0, 14, "poor", "high", True, False, 33),
-    ("Karve Road, Kothrud", "Kothrud", "URB", 1500, 31000, 14, 18.5070, 73.8130, 5.5, 11, "fair", "high", False, True, 27),
-    ("FC Road, Shivajinagar", "Shivajinagar", "URB", 900, 24000, 9, 18.5220, 73.8410, 4.0, 6, "good", "moderate", False, True, 12),
-    ("Solapur Road, Hadapsar", "Hadapsar", "SH", 2100, 29000, 31, 18.5010, 73.9260, 9.0, 16, "poor", "high", False, False, 38),
-    ("Baner Road, Baner", "Baner", "URB", 1600, 26000, 12, 18.5590, 73.7770, 3.5, 7, "good", "moderate", False, True, 9),
-    ("Sinhagad Road, Vadgaon", "Vadgaon", "MDR", 2000, 18000, 22, 18.4650, 73.8210, 8.0, 12, "poor", "high", False, False, 31),
-    ("Airport Road, Lohegaon", "Lohegaon", "SH", 1400, 21000, 19, 18.5820, 73.9200, 5.0, 8, "fair", "moderate", True, False, 14),
-    ("Satara Road, Bibwewadi", "Bibwewadi", "URB", 1700, 27000, 17, 18.4770, 73.8620, 6.5, 13, "fair", "high", False, False, 24),
-    ("Paud Road, Kothrud", "Kothrud", "COL", 1100, 14000, 8, 18.5090, 73.8010, 7.0, 5, "fair", "moderate", False, True, 18),
-    ("Alandi Road, Vishrantwadi", "Vishrantwadi", "MDR", 1900, 16000, 24, 18.5680, 73.8790, 9.5, 10, "poor", "high", False, False, 29),
-    ("JM Road, Deccan", "Deccan", "URB", 800, 22000, 6, 18.5180, 73.8430, 2.5, 4, "good", "moderate", False, False, 6),
-    ("Katraj–Kondhwa Link", "Kondhwa", "MDR", 2600, 19000, 27, 18.4560, 73.8730, 8.5, 15, "poor", "high", False, False, 35),
-    ("Aundh–Ravet BRT Corridor", "Aundh", "URB", 2200, 25000, 15, 18.5620, 73.8070, 4.5, 9, "good", "moderate", False, False, 11),
-    ("Wagholi Service Road", "Wagholi", "LOC", 1300, 6500, 18, 18.5800, 73.9800, 10.0, 6, "poor", "high", False, False, 22),
-    ("Kalyani Nagar Internal", "Kalyani Nagar", "COL", 700, 9000, 5, 18.5480, 73.9010, 3.0, 2, "good", "low", False, True, 4),
-    ("Hinjawadi Phase 2 Approach", "Hinjawadi", "MDR", 1800, 33000, 21, 18.5910, 73.7380, 5.5, 12, "fair", "high", False, False, 26),
-    ("Dhankawadi Link Road", "Dhankawadi", "COL", 950, 11000, 11, 18.4640, 73.8530, 7.5, 4, "fair", "moderate", False, True, 15),
-    ("Kharadi Bypass", "Kharadi", "SH", 2300, 28000, 29, 18.5510, 73.9430, 6.0, 13, "fair", "high", True, False, 20),
-    ("Bhosari MIDC Road", "Bhosari", "MDR", 2000, 17000, 38, 18.6280, 73.8460, 9.0, 11, "poor", "moderate", False, False, 28),
-    ("Pashan–Sus Road", "Pashan", "COL", 1500, 12000, 9, 18.5380, 73.7830, 6.5, 5, "fair", "high", False, False, 17),
-    ("Market Yard Approach", "Market Yard", "COL", 600, 15000, 33, 18.4830, 73.8700, 8.0, 7, "poor", "moderate", False, False, 23),
-    ("Undri Village Road", "Undri", "LOC", 1200, 4200, 14, 18.4530, 73.9080, 11.0, 3, "poor", "high", False, True, 19),
-    ("Model Colony Loop", "Model Colony", "LOC", 550, 5200, 4, 18.5310, 73.8340, 4.0, 1, "good", "low", False, False, 3),
+    # ---- Delhi ----
+    ("Ring Road, Ashram Chowk", "Ashram", "Delhi", "URB", 1800, 185000, 12, 28.5720, 77.2590, 5.5, 24, "poor", "high", True, False, 62),
+    ("NH-48, Dhaula Kuan", "Dhaula Kuan", "Delhi", "NH", 2600, 220000, 18, 28.5920, 77.1610, 4.0, 19, "fair", "moderate", True, False, 34),
+    ("Mathura Road, Badarpur", "Badarpur", "Delhi", "NH", 2400, 145000, 32, 28.5100, 77.3020, 8.0, 27, "poor", "high", False, False, 58),
+    ("GT Karnal Road, Azadpur", "Azadpur", "Delhi", "NH", 2200, 128000, 35, 28.7070, 77.1750, 6.0, 21, "fair", "moderate", False, False, 47),
+    ("Outer Ring Road, Mukarba Chowk", "Mukarba", "Delhi", "URB", 2800, 165000, 22, 28.7360, 77.1560, 6.0, 18, "fair", "high", True, False, 39),
+    ("Rohtak Road, Peeragarhi", "Peeragarhi", "Delhi", "NH", 2100, 112000, 29, 28.6800, 77.0900, 7.0, 16, "fair", "moderate", False, False, 44),
+    ("Vikas Marg, Laxmi Nagar", "Laxmi Nagar", "Delhi", "URB", 1600, 96000, 9, 28.6360, 77.2770, 5.0, 14, "fair", "high", False, True, 41),
+    ("Aurobindo Marg, AIIMS", "AIIMS", "Delhi", "URB", 1400, 88000, 7, 28.5670, 77.2100, 3.0, 11, "good", "moderate", True, False, 18),
+    ("Najafgarh Road, Janakpuri", "Janakpuri", "Delhi", "MDR", 1900, 74000, 14, 28.6220, 77.0810, 7.0, 12, "fair", "high", False, True, 33),
+    ("Mehrauli–Badarpur Road, Saket", "Saket", "Delhi", "URB", 1700, 82000, 11, 28.5230, 77.2060, 4.5, 9, "good", "moderate", False, True, 15),
+    ("Nelson Mandela Marg, Vasant Kunj", "Vasant Kunj", "Delhi", "URB", 1500, 58000, 8, 28.5250, 77.1580, 1.5, 4, "good", "low", False, False, 5),
+    ("Wazirabad Road, Bhajanpura", "Bhajanpura", "Delhi", "MDR", 2000, 67000, 24, 28.6960, 77.2680, 9.5, 17, "poor", "high", False, False, 55),
+    ("Okhla Industrial Area Road", "Okhla", "Delhi", "COL", 1300, 42000, 41, 28.5300, 77.2730, 8.5, 10, "poor", "moderate", False, False, 37),
+    ("Dwarka Sector 21 Approach", "Dwarka", "Delhi", "COL", 1100, 31000, 9, 28.5520, 77.0580, 2.0, 3, "good", "low", False, True, 6),
+    ("Rohini Sector 18 Internal", "Rohini", "Delhi", "LOC", 800, 12000, 5, 28.7370, 77.1180, 4.0, 2, "good", "moderate", False, True, 9),
+
+    # ---- Ghaziabad ----
+    ("NH-9, Vijay Nagar Bypass", "Vijay Nagar", "Ghaziabad", "NH", 2900, 138000, 38, 28.6800, 77.4300, 6.5, 22, "fair", "moderate", True, False, 43),
+    ("GT Road, Ghaziabad City", "City Centre", "Ghaziabad", "SH", 2300, 94000, 33, 28.6650, 77.4300, 9.0, 19, "poor", "high", False, False, 61),
+    ("Hapur Road, Ghaziabad", "Hapur Chungi", "Ghaziabad", "SH", 2500, 71000, 36, 28.6700, 77.4550, 10.0, 15, "poor", "moderate", False, False, 52),
+    ("Delhi–Meerut Expressway Link, Indirapuram", "Indirapuram", "Ghaziabad", "NH", 2100, 108000, 26, 28.6420, 77.3720, 1.5, 8, "good", "moderate", True, False, 11),
+    ("Raj Nagar Extension Road", "Raj Nagar Ext", "Ghaziabad", "MDR", 2400, 46000, 19, 28.7060, 77.4180, 7.5, 11, "poor", "high", False, True, 48),
+    ("Loni Road, Ghaziabad", "Loni", "Ghaziabad", "MDR", 2700, 52000, 31, 28.7500, 77.2830, 11.0, 18, "poor", "high", False, False, 66),
+    ("Vaishali Sector 4 Arterial", "Vaishali", "Ghaziabad", "URB", 1400, 38000, 8, 28.6420, 77.3390, 4.0, 6, "fair", "moderate", False, True, 19),
+    ("Vasundhara Sector 13 Road", "Vasundhara", "Ghaziabad", "COL", 1200, 27000, 7, 28.6600, 77.3600, 3.5, 4, "good", "moderate", False, True, 13),
+    ("Mohan Nagar Junction Approach", "Mohan Nagar", "Ghaziabad", "URB", 1000, 63000, 21, 28.6800, 77.3450, 8.0, 14, "poor", "high", False, False, 45),
+    ("Sahibabad Industrial Area Road", "Sahibabad", "Ghaziabad", "COL", 1600, 34000, 44, 28.6790, 77.3320, 9.5, 13, "poor", "moderate", False, False, 51),
+    ("Kavi Nagar Internal Road", "Kavi Nagar", "Ghaziabad", "LOC", 700, 9000, 4, 28.6720, 77.4400, 2.0, 1, "good", "low", False, True, 4),
+    ("Crossings Republik Approach", "Crossings", "Ghaziabad", "COL", 1500, 24000, 12, 28.6350, 77.4200, 6.0, 5, "fair", "moderate", False, False, 26),
+    ("Modinagar Bypass, NH-58", "Modinagar", "Ghaziabad", "SH", 3100, 41000, 42, 28.8330, 77.5780, 9.0, 16, "fair", "moderate", False, False, 39),
 ]
 
 
@@ -122,11 +140,15 @@ def seed(force: bool = False) -> dict:
     now = datetime.now(timezone.utc)
     created = 0
 
-    for (name, ward, cls, length, aadt, comm, lat, lon, age, acc,
+    for (name, ward, city, cls, length, aadt, comm, lat, lon, age, acc,
          drain, monsoon, emergency, school, reports) in NETWORK:
-        seg_id = "SEG-" + name.upper().replace(" ", "-").replace(",", "")[:18].strip("-")
+        # City-prefixed so two authorities can share a register without their
+        # ids colliding, and long enough that similarly-named arterials in the
+        # same city stay distinct.
+        slug = re.sub(r"[^A-Z0-9]+", "-", name.upper()).strip("-")[:30]
+        seg_id = f"{city[:3].upper()}-{slug}"
         seg = {
-            "id": seg_id, "name": name, "ward": ward, "city": CITY,
+            "id": seg_id, "name": name, "ward": ward, "city": city,
             "road_class": cls, "surface_type": rng.choice(["BC", "BC", "DBM", "SD"]),
             "length_m": float(length), "lat": lat, "lon": lon,
             "aadt": aadt, "commercial_pct": float(comm),

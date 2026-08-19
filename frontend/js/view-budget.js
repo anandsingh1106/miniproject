@@ -2,6 +2,7 @@
 
 import {
   $, api, html, raw, currency, num, bandChip, bandColor, emptyState, debounce,
+  icon, help, downloadCSV,
 } from './core.js';
 import { allocationBar } from './charts.js';
 
@@ -26,6 +27,7 @@ export async function budgetView(mount) {
           divided by cost), then funds every P1 hazard first regardless of its ratio.
         </p>
       </div>
+      <button class="btn" id="export-plan">${icon('file-down')} Export works order</button>
     </div>
 
     <div class="filters">
@@ -68,6 +70,26 @@ export async function budgetView(mount) {
     });
   });
 
+  $('#export-plan', mount).addEventListener('click', async () => {
+    const plan = await api.budget(amount);
+    downloadCSV(`roadlens-works-order-${new Date().toISOString().slice(0, 10)}.csv`, [
+      { header: 'Status', value: (r) => r._status },
+      { header: 'Segment', value: (r) => r.name },
+      { header: 'Ward', value: (r) => r.ward || '' },
+      { header: 'Road class', value: (r) => r.road_class },
+      { header: 'Priority band', value: (r) => r.band_code },
+      { header: 'RPI', value: (r) => (r.rpi ?? 0).toFixed(1) },
+      { header: 'PCI', value: (r) => (r.pci ?? 0).toFixed(0) },
+      { header: 'Recommended work', value: (r) => r.treatment_name || '' },
+      { header: 'Estimated cost (INR)', value: (r) => Math.round(r.total_cost || 0) },
+      { header: 'Design life (yr)', value: (r) => r.life_years || '' },
+      { header: 'Value per rupee', value: (r) => (r.ratio ?? 0).toExponential(3) },
+    ], [
+      ...plan.funded.map((r) => ({ ...r, _status: 'FUNDED' })),
+      ...plan.deferred.map((r) => ({ ...r, _status: 'DEFERRED' })),
+    ]);
+  });
+
   label.textContent = currency(amount);
   await render($('#out', mount), amount);
   mount.querySelectorAll('#presets button').forEach((b) =>
@@ -80,7 +102,7 @@ async function render(mount, amount) {
   mount.innerHTML = html`
     ${plan.unfunded_critical > 0 ? html`
       <div class="alert critical" role="alert">
-        <span class="ico" aria-hidden="true">●</span>
+        <span class="ico">${icon('alert-circle')}</span>
         <div>
           <strong>${num(plan.unfunded_critical)} critical segment${raw(plan.unfunded_critical === 1 ? '' : 's')}
           cannot be funded at this budget.</strong>
@@ -110,7 +132,8 @@ async function render(mount, amount) {
         <div class="value" style="color:${plan.shortfall > 0 ? bandColor('P1') : 'inherit'}">
           ${currency(plan.shortfall)}
         </div>
-        <div class="sub">${plan.shortfall > 0 ? 'Deferred to a later cycle' : 'Full backlog covered'}</div>
+        <div class="sub">${plan.shortfall > 0
+          ? 'Additional budget needed to clear the backlog' : 'Full backlog covered'}</div>
       </div>
     </div>
 
@@ -139,7 +162,7 @@ async function render(mount, amount) {
       <section class="card">
         <div class="card-head">
           <h2>Deferred</h2>
-          <span class="hint">${num(plan.deferred_count)} segments · ${currency(plan.shortfall)}</span>
+          <span class="hint">${num(plan.deferred_count)} segments · ${currency(plan.deferred_cost)}</span>
         </div>
         <div class="card-body flush">
           ${raw(table(plan.deferred, false))}
@@ -153,7 +176,7 @@ async function render(mount, amount) {
 
   allocationBar($('#alloc', mount), plan.allocated, Math.max(0, plan.total_required - plan.allocated), {
     fundedLabel: `Funded — ${currency(plan.allocated)}`,
-    deferredLabel: `Unfunded backlog — ${currency(plan.shortfall)}`,
+    deferredLabel: `Unfunded backlog — ${currency(plan.deferred_cost)}`,
   });
 
   mount.querySelectorAll('tr[data-id]').forEach((tr) => {
@@ -175,7 +198,7 @@ function table(rows, funded) {
         <thead>
           <tr>
             <th>Segment</th><th>Priority</th><th>Work</th>
-            <th class="num">Cost</th><th class="num">Value/₹</th>
+            <th class="num">Cost</th><th class="num">Value/₹${help('value_per_rupee')}</th>
           </tr>
         </thead>
         <tbody>

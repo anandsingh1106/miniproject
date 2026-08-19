@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest httpx
+
+      - name: Run tests
+        run: python -m pytest -v
+
+      - name: Verify the app starts and serves a scored network
+        run: |
+          python -m uvicorn backend.main:app --port 8000 &
+          python scripts/smoke_check.py --wait 45
+
+  assets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Vendor frontend assets
+        run: |
+          npm install --no-audit --no-fund --ignore-scripts
+          node scripts/vendor.js
+
+      - name: Check the committed vendor assets are current
+        run: |
+          if ! git diff --quiet -- frontend/vendor; then
+            echo "::error::frontend/vendor is stale. Run 'npm run vendor' and commit."
+            git diff --stat -- frontend/vendor
+            exit 1
+          fi
+          echo "vendor assets up to date"
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the image
+        run: docker build -t roadlens:ci .
+      - name: Smoke-test the container
+        run: |
+          docker run -d --name roadlens -p 8000:8000 roadlens:ci
+          python scripts/smoke_check.py --wait 60
+          docker logs roadlens
+          docker rm -f roadlens

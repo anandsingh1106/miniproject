@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import re
 import uuid
+from contextlib import asynccontextmanager
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 
@@ -18,10 +19,23 @@ from . import config, costing, db, seed as seeder
 from .detection import registry
 from .priority import SegmentContext, compute_rpi, pci_label
 
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Prepare the database and seed the demo network before serving.
+
+    A lifespan handler rather than the deprecated @app.on_event, which FastAPI
+    warns about and will eventually remove.
+    """
+    db.init_db()
+    seeder.seed()          # no-op once the network exists
+    yield
+
+
 app = FastAPI(
     title="RoadLens API",
     description="AI road-damage detection and reconstruction prioritisation.",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -30,12 +44,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-@app.on_event("startup")
-def _startup() -> None:
-    db.init_db()
-    seeder.seed()          # no-op once the network exists
 
 
 # ======================================================================

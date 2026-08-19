@@ -3,7 +3,7 @@
 import {
   $, $$, api, meta, html, raw, esc, currency, num, clamp, debounce,
   bandChip, bandColor, damageColor, damageChartRows, pciColor, relTime, dateStr,
-  emptyState, rpiMeter,
+  emptyState, rpiMeter, icon, help, downloadCSV,
 } from './core.js';
 import { hbar, line, sparkline } from './charts.js';
 
@@ -27,7 +27,10 @@ export async function networkView(mount) {
           priority index exists to prevent.
         </p>
       </div>
-      <a class="btn primary" href="#/analyze">Add an inspection</a>
+      <div style="display:flex;gap:8px">
+        <button class="btn" id="export">${icon('download')} Export CSV</button>
+        <a class="btn primary" href="#/analyze">${icon('plus')} Add an inspection</a>
+      </div>
     </div>
 
     <div class="filters">
@@ -109,6 +112,7 @@ export async function networkView(mount) {
       return (typeof va === 'string' ? va.localeCompare(vb) : va - vb) * dir;
     });
 
+    visible = rows;
     renderRows(mount, rows);
     $('#count', mount).textContent = `${num(rows.length)} segment${rows.length === 1 ? '' : 's'}`;
     const cost = rows.reduce((n, s) => n + (s.total_cost || 0), 0);
@@ -124,6 +128,29 @@ export async function networkView(mount) {
       }
     });
   };
+
+  // Export whatever is currently on screen — filters and sort included. An
+  // export that silently ignores the active filter is a reporting bug waiting
+  // to happen when someone pastes it into a works order.
+  let visible = [];
+  $('#export', mount).addEventListener('click', () => {
+    downloadCSV(`roadlens-network-${new Date().toISOString().slice(0, 10)}.csv`, [
+      { header: 'Segment', value: (r) => r.name },
+      { header: 'Ward', value: (r) => r.ward || '' },
+      { header: 'Road class', value: (r) => r.road_class },
+      { header: 'Priority band', value: (r) => r.band_code || '' },
+      { header: 'Priority label', value: (r) => r.band_label || '' },
+      { header: 'RPI', value: (r) => (r.rpi == null ? '' : r.rpi.toFixed(1)) },
+      { header: 'PCI', value: (r) => (r.pci == null ? '' : r.pci.toFixed(0)) },
+      { header: 'AADT', value: (r) => r.aadt },
+      { header: 'Length (m)', value: (r) => r.length_m },
+      { header: 'Defects detected', value: (r) => r.detection_count },
+      { header: 'Recommended work', value: (r) => r.treatment_name || '' },
+      { header: 'Estimated cost (INR)', value: (r) => Math.round(r.total_cost || 0) },
+      { header: 'Design life (yr)', value: (r) => r.life_years || '' },
+      { header: 'Last inspected', value: (r) => (r.inspected_at || '').slice(0, 10) },
+    ], visible);
+  });
 
   $('#q', mount).addEventListener('input', debounce(apply, 160));
   ['#f-band', '#f-class', '#f-ward'].forEach((sel) =>
@@ -231,12 +258,12 @@ export async function segmentView(mount, params) {
 
     <div class="grid g-4" style="margin-bottom:16px">
       <div class="stat">
-        <div class="label">Priority index</div>
+        <div class="label">Priority index${help('RPI')}</div>
         <div class="value" style="color:${bandColor(s.band.code)}">${num(s.rpi, 1)}</div>
         <div class="sub">${s.band.window}</div>
       </div>
       <div class="stat">
-        <div class="label">Pavement condition</div>
+        <div class="label">Pavement condition${help('PCI')}</div>
         <div class="value">${num(s.pci, 0)}<small> / 100</small></div>
         <div class="sub">${s.pci_label}</div>
       </div>

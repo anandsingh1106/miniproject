@@ -3,6 +3,7 @@
 import {
   $, $$, api, meta, html, raw, esc, currency, num, clamp,
   bandChip, bandColor, damageColor, errorState, debounce,
+  icon, paintIcons, help, wireHelp, toast,
 } from './core.js';
 
 const CONTEXT_FIELDS = [
@@ -37,12 +38,26 @@ export async function analyzeView(mount) {
           <div class="card-body">
             <div class="dropzone" id="drop" role="button" tabindex="0"
                  aria-label="Choose or drop a road image">
-              ${raw(`<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>`)}
+              ${icon('image-up')}
               <div class="big">Drop a photo, or click to choose</div>
               <div class="small">JPEG, PNG or WebP · up to 12 MB</div>
             </div>
             <input type="file" id="file" accept="image/*" class="sr-only">
             <div id="preview" style="margin-top:12px"></div>
+
+            <div style="margin-top:16px">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px">
+                <span style="font-size:12.5px;font-weight:600;color:var(--text-secondary)">
+                  Or try a sample
+                </span>
+                <span class="muted" style="font-size:11px">Synthetic</span>
+              </div>
+              <div class="samples" id="samples"></div>
+              <div class="help" style="margin-top:7px">
+                Generated road surfaces, not photographs — they demonstrate the pipeline
+                end to end without you needing to find an image first.
+              </div>
+            </div>
           </div>
         </section>
 
@@ -76,12 +91,12 @@ export async function analyzeView(mount) {
 
             <div class="grid g-2" style="gap:12px">
               <div class="field">
-                <label for="f-aadt">Traffic (AADT)</label>
+                <label for="f-aadt">Traffic (AADT)${help('AADT')}</label>
                 <input type="number" id="f-aadt" value="8000" min="0" step="500">
                 <div class="help">Vehicles per day</div>
               </div>
               <div class="field">
-                <label for="f-commercial_pct">Commercial %</label>
+                <label for="f-commercial_pct">Commercial %${help('commercial')}</label>
                 <input type="number" id="f-commercial_pct" value="12" min="0" max="100" step="1">
                 <div class="help">Trucks and buses do the damage</div>
               </div>
@@ -166,15 +181,57 @@ export async function analyzeView(mount) {
     </div>`;
 
   wireUpload(mount);
+  loadSamples(mount);
   $('#f-conf', mount).addEventListener('input', (e) => {
     $('#conf-val', mount).textContent = Number(e.target.value).toFixed(2);
   });
   $('#run', mount).addEventListener('click', () => run(mount, m));
 }
 
+/* ---------- bundled samples ---------- */
+
+async function loadSamples(mount) {
+  const host = $('#samples', mount);
+  if (!host) return;
+  let manifest;
+  try {
+    manifest = await (await fetch('samples/manifest.json')).json();
+  } catch {
+    host.closest('div[style]')?.remove();      // no samples bundled — hide the block
+    return;
+  }
+
+  host.innerHTML = manifest.samples.map((s) => html`
+    <button type="button" class="sample" data-file="${s.file}"
+            title="${s.title} — ${s.description}">
+      <img src="samples/${s.file}" alt="${s.title}" loading="lazy">
+      <span class="cap">${s.title}</span>
+    </button>`).join('');
+
+  host.querySelectorAll('.sample').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const meta_ = manifest.samples.find((x) => x.file === btn.dataset.file);
+      try {
+        const blob = await (await fetch(`samples/${btn.dataset.file}`)).blob();
+        accept(new File([blob], btn.dataset.file, { type: 'image/jpeg' }), mount);
+        // Apply the sample's plausible segment context, so the score reflects a
+        // realistic road rather than the form defaults.
+        for (const [k, v] of Object.entries(meta_.context || {})) {
+          const f = $(`#f-${k}`, mount);
+          if (f) f.value = v;
+        }
+        if (!$('#f-name', mount).value) $('#f-name', mount).value = `Sample — ${meta_.title}`;
+        toast(`Loaded sample: ${meta_.title}`, 'success');
+      } catch (err) {
+        toast('Could not load that sample.', 'error');
+      }
+    });
+  });
+}
+
 function placeholder() {
   return html`<div class="empty">
-    ${raw(`<svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>`)}
+    ${icon('scan-search')}
     <h3>No analysis yet</h3>
     <p style="margin:0;max-width:38ch;margin-inline:auto">
       Choose a road photograph and set the segment context, then run the detector.
@@ -213,7 +270,8 @@ function wireUpload(mount) {
 function accept(file, mount) {
   if (!file.type.startsWith('image/')) {
     $('#preview', mount).innerHTML = html`
-      <div class="alert warn"><span class="ico">⚠</span><div>That is not an image file.</div></div>`;
+      <div class="alert warn"><span class="ico">${icon('alert-triangle')}</span>
+        <div>That is not an image file.</div></div>`;
     return;
   }
   state.file = file;
@@ -283,7 +341,7 @@ function renderResults(mount, r, m, formRoot) {
 
   mount.innerHTML = html`
     ${d.warnings.map((w) => html`
-      <div class="alert warn"><span class="ico" aria-hidden="true">⚠</span><div>${w}</div></div>`)}
+      <div class="alert warn"><span class="ico">${icon('alert-triangle')}</span><div>${w}</div></div>`)}
 
     <section class="card" style="margin-bottom:16px">
       <div class="card-head">
@@ -316,14 +374,14 @@ function renderResults(mount, r, m, formRoot) {
                         color:${bandColor(s.band.code)};font-variant-numeric:tabular-nums">
               ${num(s.rpi, 1)}
             </div>
-            <div class="muted" style="font-size:12px;margin-top:3px">RPI · out of 100</div>
+            <div class="muted" style="font-size:12px;margin-top:3px">RPI · out of 100${help('RPI')}</div>
           </div>
           <div style="flex:1;min-width:150px">
             <div style="font-size:24px;font-weight:600;font-variant-numeric:tabular-nums">
               ${num(s.pci, 0)}<span class="muted" style="font-size:14px;font-weight:450"> / 100</span>
             </div>
             <div class="muted" style="font-size:12px;margin-top:3px">
-              Pavement condition — ${s.pci_label.toLowerCase()}
+              Pavement condition — ${s.pci_label.toLowerCase()}${help('PCI')}
             </div>
           </div>
           <div style="text-align:right">
@@ -397,6 +455,8 @@ function renderResults(mount, r, m, formRoot) {
 
   drawBoxes(mount, dets);
   drawList(mount, dets, m);
+  paintIcons(mount);
+  wireHelp(mount);
 }
 
 const LABELS = {

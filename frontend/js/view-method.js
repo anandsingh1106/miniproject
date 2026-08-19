@@ -1,6 +1,6 @@
 /* Method — how the score is built, and what it cannot tell you. */
 
-import { meta, html, raw, num, bandColor, damageColor } from './core.js';
+import { meta, html, raw, num, bandColor, damageColor, GLOSSARY, icon } from './core.js';
 
 export async function methodView(mount) {
   const m = await meta();
@@ -18,6 +18,21 @@ export async function methodView(mount) {
     </div>
 
     <div class="prose">
+      <h2>Terms used in this tool</h2>
+      <p>
+        Road asset management runs on jargon. Every term below also appears as a small
+        <strong>?</strong> beside the number it describes, so you never have to come back here.
+      </p>
+      <div class="card" style="margin:14px 0"><div class="card-body">
+        <dl class="glossary">
+          ${Object.values(GLOSSARY).map((g) => html`
+            <div class="glossary-row">
+              <dt>${g.term}</dt>
+              <dd>${g.body}</dd>
+            </div>`)}
+        </dl>
+      </div></div>
+
       <h2>1 · Detection</h2>
       <p>
         An uploaded image goes to whichever detection engine is available. Every result
@@ -56,9 +71,17 @@ export async function methodView(mount) {
           difference isolates real linear structure.</li>
         <li><strong>Alligator cracking</strong> — grid cells where crack density is high in
           several orientations at once, reported as an area rather than as individual cracks.</li>
-        <li><strong>Ravelling</strong> — cells with high micro-texture variance and no linear
-          structure, judged against the frame's own texture baseline rather than a fixed number.</li>
       </ul>
+      <p>
+        <strong>It deliberately does not detect ravelling, rutting or edge break.</strong> A
+        texture-variance ravelling detector was built and then removed: measured across
+        controlled test imagery, the local texture statistics of sound and ravelled pavement
+        were indistinguishable (25th-percentile sigma 3.2 versus 3.1). Every threshold that
+        caught real ravelling also flagged sound road — and that failure runs in the expensive
+        direction, recommending resurfacing for a pavement that does not need it. Those three
+        classes stay in the taxonomy and are reported by the trained neural engine, which
+        learns them from labelled examples rather than from a hand-picked statistic.
+      </p>
       <p>
         Its accuracy is well below a model trained on RDD2022. It is a baseline, and the
         <code>training/</code> directory exists to replace it. Drop a trained checkpoint at

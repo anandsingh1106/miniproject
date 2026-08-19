@@ -1,0 +1,65 @@
+{
+  "note": "Procedurally generated, not photographs. They demonstrate the pipeline; they are not evidence of detector accuracy on real imagery.",
+  "samples": [
+    {
+      "file": "good.jpg",
+      "title": "Sound pavement",
+      "description": "Recently surfaced, one hairline crack.",
+      "context": {
+        "road_class": "URB",
+        "aadt": 14000,
+        "last_resurfaced_years": 2
+      }
+    },
+    {
+      "file": "cracking.jpg",
+      "title": "Longitudinal cracking",
+      "description": "Working cracks along the wheel paths.",
+      "context": {
+        "road_class": "URB",
+        "aadt": 22000,
+        "last_resurfaced_years": 6
+      }
+    },
+    {
+      "file": "potholes.jpg",
+      "title": "Potholes",
+      "description": "Discrete cavities on an otherwise sound surface.",
+      "context": {
+        "road_class": "MDR",
+        "aadt": 18000,
+        "last_resurfaced_years": 8
+      }
+    },
+    {
+      "file": "alligator.jpg",
+      "title": "Fatigue cracking",
+      "description": "Interconnected cracking \u2014 the base is failing.",
+      "context": {
+        "road_class": "SH",
+        "aadt": 28000,
+        "last_resurfaced_years": 9
+      }
+    },
+    {
+      "file": "ravelled.jpg",
+      "title": "Ravelling",
+      "description": "Aggregate loss and lost surface texture.",
+      "context": {
+        "road_class": "COL",
+        "aadt": 11000,
+        "last_resurfaced_years": 7
+      }
+    },
+    {
+      "file": "failed.jpg",
+      "title": "Failed carriageway",
+      "description": "Rutting, potholes and fatigue cracking together.",
+      "context": {
+        "road_class": "NH",
+        "aadt": 41000,
+        "last_resurfaced_years": 11
+      }
+    }
+  ]
+}

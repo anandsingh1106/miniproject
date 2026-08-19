@@ -2,7 +2,7 @@
 
 import {
   $, api, html, raw, currency, num, bandChip, bandColor, bandGlyph,
-  rpiMeter, relTime, emptyState, meta,
+  rpiMeter, relTime, emptyState, meta, icon, help,
 } from './core.js';
 import { hbar } from './charts.js';
 import { renderMap } from './map.js';
@@ -27,14 +27,13 @@ export async function dashboardView(mount) {
         </p>
       </div>
       <a class="btn primary" href="#/analyze">
-        ${raw(`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>`)}
-        Analyse a road image
+        ${icon('scan-line')} Analyse a road image
       </a>
     </div>
 
     ${t.critical > 0 ? html`
       <div class="alert critical" role="alert">
-        <span class="ico" aria-hidden="true">●</span>
+        <span class="ico">${icon('alert-circle')}</span>
         <div>
           <strong>${num(t.critical)} segment${raw(t.critical === 1 ? '' : 's')} at P1 Critical.</strong>
           These need intervention within 30 days. Estimated cost to clear the
@@ -45,12 +44,12 @@ export async function dashboardView(mount) {
 
     <div class="grid g-4" style="margin-bottom:16px">
       <div class="stat">
-        <div class="label">Critical — P1</div>
+        <div class="label">Critical — P1${help('band')}</div>
         <div class="value" style="color:${bandColor('P1')}">${num(t.critical)}</div>
         <div class="sub">${num(t.high)} more at P2 High</div>
       </div>
       <div class="stat">
-        <div class="label">Network condition</div>
+        <div class="label">Network condition${help('PCI')}</div>
         <div class="value">${num(t.avg_pci, 1)}<small> / 100</small></div>
         <div class="sub">Mean PCI — ${t.avg_pci_label.toLowerCase()}</div>
       </div>

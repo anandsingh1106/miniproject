@@ -1,0 +1,13 @@
+.git
+.github
+node_modules
+data
+runs
+tests
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+frontend/samples
+*.md
+!README.md

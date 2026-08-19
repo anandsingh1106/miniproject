@@ -28,11 +28,38 @@ pip install -r requirements.txt
 python run.py
 ```
 
-Opens <http://127.0.0.1:8000>. A 24-segment demo network seeds itself on first
-run, so the dashboard, analytics and budget planner are populated immediately —
-before you upload anything.
+Opens <http://127.0.0.1:8000>. A 28-segment Delhi and Ghaziabad demo network
+seeds itself on first run, and six sample road images ship with the app — so you can watch detection,
+scoring, treatment selection and budget allocation work end to end within about
+thirty seconds of cloning, without finding a road photograph first.
 
-Python 3.10+. No database server, no build step, no API keys.
+Python 3.10+. No database server, no bundler, no API keys, and no network
+access at view time: Leaflet, the Lucide icon set and the Inter font are all
+served locally.
+
+### With Docker
+
+```bash
+docker compose up --build
+```
+
+### Tests
+
+```bash
+pip install pytest httpx
+pytest                       # 143 tests
+python scripts/smoke_check.py   # assert a running deployment is actually useful
+```
+
+### Updating frontend assets
+
+`frontend/vendor/` is committed, so npm is only needed to change a dependency:
+
+```bash
+npm install                  # runs scripts/vendor.js via postinstall
+npm run vendor               # or re-copy assets on demand
+python scripts/make_samples.py   # regenerate the sample imagery
+```
 
 ---
 
@@ -60,7 +87,12 @@ cheap sealing jobs go unfunded, so the allocator ranks by **value per rupee**
 **Analytics** — distress mix, condition by road class, backlog by intervention
 type, and network condition over time.
 
-**Method** — how every number is produced, and what it cannot tell you.
+**Method** — a glossary of every term the tool uses, then how each number is
+produced and what it cannot tell you. The jargon (RPI, PCI, AADT) also carries
+an inline **?** wherever it appears, so nobody has to guess.
+
+Both the register and the budget plan **export to CSV** — filtered and sorted as
+shown on screen — so a works order can leave the tool and enter a spreadsheet.
 
 ---
 
@@ -77,9 +109,8 @@ on every result, so a score is never ambiguous about its evidence.
 The classical engine is genuine computer vision, not a placeholder — it
 segments the pavement, then finds potholes as dark compact blobs against a
 morphological background estimate, cracks as *anisotropic* dark linear
-structure, alligator cracking as multi-orientation crack density, and
-ravelling as texture variance. Three details in it are load-bearing and were
-each a bug first:
+structure, and alligator cracking as multi-orientation crack density. Three
+details in it are load-bearing and were each a bug first:
 
 - **Potholes run on the un-equalised image.** CLAHE's tiles land at roughly
   pothole scale, so it normalises each pothole up to mid-grey and the cavity
@@ -92,6 +123,15 @@ each a bug first:
   smooth regions — which is exactly what deep shadow, standing water or fresh
   tar inside a pothole looks like. Unfilled, the mask cuts out the very defect
   the detector exists to find.
+
+**It deliberately does not detect ravelling, rutting or edge break.** A
+texture-variance ravelling detector was built and then removed: measured across
+controlled imagery, the local texture statistics of sound and ravelled pavement
+were indistinguishable (25th-percentile sigma 3.2 vs 3.1). Every threshold that
+caught real ravelling also flagged sound road — and that error runs in the
+expensive direction, recommending resurfacing for a pavement that does not need
+it. Those classes stay in the taxonomy and are reported by the neural engine,
+which learns them from labelled examples rather than a hand-picked statistic.
 
 It is still a baseline: it will miss cracks in poor light and report shadows
 and wet marks as damage. See [`training/`](training/README.md) to replace it
@@ -147,7 +187,11 @@ backend/
   db.py  main.py  seed.py
 frontend/              vanilla ES modules, no build step
   js/charts.js         hand-rolled SVG charts
+  vendor/              Leaflet, Lucide, Inter — vendored from npm, committed
+  samples/             generated demo road imagery
 training/              RDD2022 → YOLO pipeline + evaluation
+tests/                 143 tests over scoring, costing, detection and the API
+scripts/               asset vendoring, sample generation, deployment smoke check
 ```
 
 Everything a civil engineer might retune — distress weights, road classes,
@@ -200,8 +244,15 @@ These matter more than the feature list.
   encode engineering judgement about relative importance. Calibrating them
   against an authority's own intervention history would make them much
   stronger.
-- **The seeded 24-segment network is synthetic**, generated from a fixed seed so
-  the demo is reproducible. Real inspections sit alongside it and are scored by
+- **The sample images are procedurally generated, not photographs.** They
+  demonstrate the pipeline; they are not evidence of detector accuracy on real
+  imagery. They are labelled as synthetic in the UI.
+- **The seeded network uses real Delhi and Ghaziabad roads and coordinates, but
+  entirely synthetic condition data**, generated from a fixed seed so the demo
+  is reproducible. No number in it is a survey result.
+- **`AADT_SATURATION` is calibrated for Delhi NCR** (150,000). Lower it for a
+  smaller network, or a genuinely busy road there will score no higher than a
+  quiet one. Real inspections sit alongside it and are scored by
   exactly the same engine. `POST /api/seed?force=true` regenerates it.
 
 ---

@@ -6,6 +6,20 @@
    pavement condition (it is a magnitude).
    ========================================================================== */
 
+/* Self-hosted variable font. Vendored from npm rather than fetched from Google
+   Fonts, so the page renders identically offline and makes no third-party
+   request. `font-display: swap` means text is readable before it loads. */
+@font-face {
+  font-family: "InterVariable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("../vendor/inter/inter-latin-wght-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+                 U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122,
+                 U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 :root {
   color-scheme: light;
 
@@ -51,7 +65,7 @@
   --shadow-md: 0 2px 10px rgba(11, 11, 11, .07);
   --shadow-lg: 0 8px 30px rgba(11, 11, 11, .10);
 
-  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+  --font: "InterVariable", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
 
   --nav-h: 58px;
@@ -178,7 +192,10 @@ a:hover { text-decoration: underline; }
   border-bottom: 1px solid var(--border);
 }
 
-.brand { display: flex; align-items: center; gap: 9px; font-weight: 650; font-size: 15px; letter-spacing: -.02em; }
+.brand {
+  display: flex; align-items: center; gap: 9px; flex: none;
+  font-weight: 650; font-size: 15px; letter-spacing: -.02em;
+}
 .brand svg { display: block; }
 .brand-sub {
   font-weight: 450; font-size: 11px; color: var(--text-muted);
@@ -186,7 +203,11 @@ a:hover { text-decoration: underline; }
   letter-spacing: 0;
 }
 
-.nav { display: flex; gap: 2px; margin-left: 6px; flex: 1; overflow-x: auto; scrollbar-width: none; }
+.nav {
+  display: flex; gap: 2px; margin-left: 6px; flex: 1 1 0;
+  overflow-x: auto; scrollbar-width: none;
+  min-width: 0;   /* without this a flex item cannot shrink below its content */
+}
 .nav::-webkit-scrollbar { display: none; }
 
 .nav a {
@@ -198,7 +219,7 @@ a:hover { text-decoration: underline; }
 .nav a:hover { background: var(--surface-2); color: var(--text-primary); text-decoration: none; }
 .nav a.active { background: var(--accent-weak); color: var(--accent); font-weight: 600; }
 
-.topbar-right { display: flex; align-items: center; gap: 10px; }
+.topbar-right { display: flex; align-items: center; gap: 10px; flex: none; }
 
 .engine-pill {
   display: inline-flex; align-items: center; gap: 6px;
@@ -595,4 +616,131 @@ details.data-table > summary:hover { color: var(--text-primary); }
   border: 1px solid var(--border); border-left: 3px solid var(--accent);
   padding: 13px 16px; border-radius: var(--radius-sm); margin: 14px 0;
   overflow-x: auto; color: var(--text-primary); white-space: pre;
+}
+
+/* ===== Icons ============================================================== */
+
+/* Lucide replaces each <i data-lucide> with an inline <svg>. Sizing and colour
+   are inherited so an icon always matches the text it sits beside. */
+[data-lucide] { width: 1em; height: 1em; }
+.ico-svg, svg.lucide {
+  width: 1em; height: 1em; flex: none;
+  stroke-width: 2; vertical-align: -0.125em;
+}
+.btn svg.lucide { width: 15px; height: 15px; }
+.icon-btn svg.lucide { width: 16px; height: 16px; }
+.stat .label svg.lucide { width: 12px; height: 12px; opacity: .7; }
+.empty svg.lucide { width: 38px; height: 38px; stroke-width: 1.3; opacity: .35; }
+.dropzone svg.lucide { width: 30px; height: 30px; stroke-width: 1.5; opacity: .5; }
+.alert .ico svg.lucide { width: 16px; height: 16px; }
+
+/* ===== Accessibility ====================================================== */
+
+/* Hidden by translating *upward*, not by parking it at left:-9999px. A large
+   negative horizontal offset widens the document's scrollable area, which on a
+   narrow viewport shows up as a page that scrolls sideways for no visible
+   reason. Moving it vertically costs nothing and cannot do that. */
+.skip-link {
+  position: absolute; left: 0; top: 0; z-index: 200;
+  transform: translateY(-150%);
+  padding: 10px 16px; background: var(--accent); color: #fff;
+  border-radius: 0 0 var(--radius-sm) 0; font-weight: 600; font-size: 13.5px;
+  transition: transform .15s;
+}
+.skip-link:focus { transform: translateY(0); text-decoration: none; }
+
+/* ===== Toasts ============================================================= */
+
+.toast-host {
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+  z-index: 300; display: flex; flex-direction: column; gap: 8px;
+  align-items: center; pointer-events: none;
+}
+.toast {
+  display: flex; align-items: center; gap: 9px;
+  padding: 10px 16px; border-radius: 100px;
+  background: var(--surface-1); border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-lg); font-size: 13.5px; font-weight: 500;
+  color: var(--text-primary); max-width: min(92vw, 460px);
+  opacity: 0; transform: translateY(10px); transition: opacity .22s, transform .22s;
+}
+.toast.in { opacity: 1; transform: translateY(0); }
+.toast svg.lucide { width: 16px; height: 16px; }
+.toast-success svg { color: var(--status-good); }
+.toast-warn    svg { color: var(--status-warning); }
+.toast-error   svg { color: var(--status-critical); }
+.toast-info    svg { color: var(--accent); }
+
+/* ===== Inline glossary help =============================================== */
+
+.help-dot {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 15px; height: 15px; padding: 0; margin-left: 4px;
+  border: 0; border-radius: 50%; background: transparent;
+  color: var(--text-muted); cursor: help; vertical-align: -2px;
+  transition: color .13s;
+}
+.help-dot:hover, .help-dot:focus-visible { color: var(--accent); }
+.help-dot svg.lucide { width: 13px; height: 13px; stroke-width: 2.2; }
+
+.help-tip {
+  position: fixed; z-index: 250; pointer-events: none; opacity: 0;
+  transition: opacity .12s; max-width: 300px;
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 10px 13px; border-radius: var(--radius-sm);
+  background: var(--surface-1); border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-lg); font-size: 12.5px; line-height: 1.5;
+  color: var(--text-secondary);
+}
+.help-tip.on { opacity: 1; }
+.help-tip strong { color: var(--text-primary); font-size: 12.5px; }
+
+/* ===== Glossary table ===================================================== */
+
+.glossary { display: grid; gap: 0; }
+.glossary-row {
+  display: grid; grid-template-columns: minmax(150px, 240px) 1fr; gap: 18px;
+  padding: 13px 0; border-bottom: 1px solid var(--border); font-size: 13.5px;
+}
+.glossary-row:last-child { border-bottom: 0; }
+.glossary-row dt { font-weight: 600; color: var(--text-primary); }
+.glossary-row dd { margin: 0; color: var(--text-secondary); line-height: 1.6; }
+@media (max-width: 640px) {
+  .glossary-row { grid-template-columns: 1fr; gap: 4px; }
+}
+
+/* ===== Sample picker ====================================================== */
+
+.samples { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+.sample {
+  position: relative; padding: 0; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); overflow: hidden; cursor: pointer;
+  background: var(--surface-2); transition: border-color .13s, transform .13s;
+  aspect-ratio: 4 / 3; display: block;
+}
+.sample:hover, .sample:focus-visible { border-color: var(--accent); transform: translateY(-1px); }
+.sample img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.sample .cap {
+  position: absolute; inset: auto 0 0 0; padding: 3px 6px;
+  background: linear-gradient(transparent, rgba(0,0,0,.72));
+  color: #fff; font-size: 10.5px; font-weight: 600; text-align: left;
+  text-shadow: 0 1px 2px rgba(0,0,0,.5);
+}
+
+/* ===== Narrow viewports ==================================================== */
+
+@media (max-width: 760px) {
+  .topbar { gap: 12px; padding: 0 14px; }
+  .brand-sub { display: none; }              /* the tagline is not worth the width */
+  .engine-pill { display: none; }            /* the engine is stated on every result */
+  .page-head { gap: 12px; }
+  .page-head > div:last-child { width: 100%; }
+  .filters { gap: 8px; }
+  .filters .field { min-width: 0; flex: 1 1 140px; }
+}
+
+@media (max-width: 480px) {
+  h1 { font-size: 21px; }
+  .stat .value { font-size: 26px; }
+  .samples { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }
 }

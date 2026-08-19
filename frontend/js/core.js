@@ -219,7 +219,7 @@ export function emptyState(title, body, icon = '📭') {
 
 export function errorState(err) {
   return html`<div class="alert critical" role="alert">
-    <span class="ico" aria-hidden="true">⚠</span>
+    <span class="ico">${icon('alert-triangle')}</span>
     <div><strong>Something went wrong.</strong><br>${err?.message || String(err)}</div>
   </div>`;
 }
@@ -250,3 +250,172 @@ export function debounce(fn, ms = 220) {
 }
 
 export const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+/* ---------- Icons ---------- */
+
+/** Inline a Lucide icon.
+ *
+ *  Returns markup, not a node, so it drops straight into an `html` template.
+ *  Lucide swaps each placeholder for a real <svg> when `paintIcons` runs after
+ *  the view is in the DOM. If the library failed to load the placeholder just
+ *  collapses to nothing — an icon is never load-bearing on its own, every one
+ *  of them sits beside a text label. */
+export const icon = (name, cls = '') =>
+  raw(`<i data-lucide="${esc(name)}"${cls ? ` class="${esc(cls)}"` : ''} aria-hidden="true"></i>`);
+
+/** Replace every placeholder in `root` with its SVG. Call after rendering. */
+export function paintIcons(root = document) {
+  if (!window.lucide?.createIcons) return;
+  try {
+    window.lucide.createIcons({ nameAttr: 'data-lucide', root });
+  } catch {
+    // A missing icon name must never take a whole view down with it.
+  }
+}
+
+/* ---------- Toasts ---------- */
+
+let toastHost;
+
+/** Transient confirmation of something that just happened.
+ *
+ *  Used for actions whose result is otherwise invisible — a file exported, a
+ *  link copied. Never used for errors that need a decision; those get an inline
+ *  alert the user can read at their own pace. */
+export function toast(message, kind = 'info', ms = 3600) {
+  if (!toastHost) {
+    toastHost = document.createElement('div');
+    toastHost.className = 'toast-host';
+    toastHost.setAttribute('role', 'status');
+    toastHost.setAttribute('aria-live', 'polite');
+    document.body.append(toastHost);
+  }
+  const t = document.createElement('div');
+  t.className = `toast toast-${kind}`;
+  t.innerHTML = `${icon({ info: 'info', success: 'check-circle-2', warn: 'alert-triangle',
+                          error: 'alert-octagon' }[kind] || 'info').value}<span>${esc(message)}</span>`;
+  toastHost.append(t);
+  paintIcons(t);
+  requestAnimationFrame(() => t.classList.add('in'));
+  setTimeout(() => {
+    t.classList.remove('in');
+    setTimeout(() => t.remove(), 260);
+  }, ms);
+}
+
+/* ---------- CSV export ---------- */
+
+/** Serialise rows to CSV and hand the browser a download.
+ *
+ *  Values are quoted and internal quotes doubled per RFC 4180. The BOM is there
+ *  on purpose: without it Excel on Windows reads UTF-8 as the local code page
+ *  and mangles the rupee sign and every road name with a diacritic. */
+export function downloadCSV(filename, columns, rows) {
+  const cell = (v) => {
+    const s = v === null || v === undefined ? '' : String(v);
+    // Quote if the value contains a comma, a quote, or a line break.
+    return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const csv = [
+    columns.map((c) => cell(c.header)).join(','),
+    ...rows.map((r) => columns.map((c) => cell(c.value(r))).join(',')),
+  ].join('\r\n');
+
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  toast(`Exported ${rows.length} row${rows.length === 1 ? '' : 's'} to ${filename}`, 'success');
+}
+
+/* ---------- Glossary ---------- */
+
+/** The jargon this tool unavoidably uses, in one place.
+ *
+ *  Every term is attached to an inline "?" affordance wherever it first appears,
+ *  because a priority score nobody understands is a priority score nobody acts
+ *  on. Also rendered as a table on the Method page. */
+export const GLOSSARY = {
+  RPI: {
+    term: 'RPI — Reconstruction Priority Index',
+    body: 'A 0-100 score for how urgently this road needs rebuilding. Combines measured '
+        + 'damage with traffic, network importance, safety and drainage. Higher means sooner.',
+  },
+  PCI: {
+    term: 'PCI — Pavement Condition Index',
+    body: 'A 0-100 score for how good the road surface is, where 100 is a brand-new '
+        + 'pavement. This is condition only — it ignores how many people use the road.',
+  },
+  AADT: {
+    term: 'AADT — Annual Average Daily Traffic',
+    body: 'Vehicles per day, averaged over a year. The standard measure of how busy a '
+        + 'road is.',
+  },
+  band: {
+    term: 'Priority band',
+    body: 'P1 Critical (fix within 30 days), P2 High (90 days), P3 Medium (this financial '
+        + 'year), P4 Routine (monitor only).',
+  },
+  commercial: {
+    term: 'Commercial share',
+    body: 'Percentage of traffic that is trucks and buses. Road damage rises with roughly '
+        + 'the fourth power of axle load, so heavy vehicles cause most of the wear.',
+  },
+  treatment: {
+    term: 'Treatment',
+    body: 'The repair method. In rising order of cost: crack sealing, pothole patching, '
+        + 'micro-surfacing, mill and overlay, full-depth reconstruction.',
+  },
+  value_per_rupee: {
+    term: 'Value per rupee',
+    body: 'Priority multiplied by the years of life the repair buys, divided by its cost. '
+        + 'Ranking by this funds cheap preventive work that would otherwise be skipped.',
+  },
+};
+
+/** An inline "?" that explains a term on hover or focus. */
+export function help(key) {
+  const g = GLOSSARY[key];
+  if (!g) return raw('');
+  return raw(`<button type="button" class="help-dot" aria-label="What is ${esc(g.term)}?"
+    data-help="${esc(key)}"><i data-lucide="help-circle" aria-hidden="true"></i></button>`);
+}
+
+/** Wire the help affordances inside `root` to the shared tooltip. */
+export function wireHelp(root = document) {
+  root.querySelectorAll('.help-dot[data-help]').forEach((btn) => {
+    const g = GLOSSARY[btn.dataset.help];
+    if (!g) return;
+    const show = () => showHelp(btn, g);
+    btn.addEventListener('mouseenter', show);
+    btn.addEventListener('focus', show);
+    btn.addEventListener('mouseleave', hideHelp);
+    btn.addEventListener('blur', hideHelp);
+    btn.addEventListener('click', (e) => { e.preventDefault(); show(); });
+  });
+}
+
+let helpTip;
+function showHelp(anchor, g) {
+  if (!helpTip) {
+    helpTip = document.createElement('div');
+    helpTip.className = 'help-tip';
+    helpTip.setAttribute('role', 'tooltip');
+    document.body.append(helpTip);
+  }
+  helpTip.innerHTML = `<strong>${esc(g.term)}</strong><span>${esc(g.body)}</span>`;
+  helpTip.classList.add('on');
+
+  const r = anchor.getBoundingClientRect();
+  const t = helpTip.getBoundingClientRect();
+  // Flip below the anchor when there is not enough room above it.
+  const above = r.top > t.height + 12;
+  helpTip.style.top = `${above ? r.top - t.height - 8 : r.bottom + 8}px`;
+  helpTip.style.left = `${clamp(r.left + r.width / 2 - t.width / 2, 8, innerWidth - t.width - 8)}px`;
+}
+const hideHelp = () => helpTip && helpTip.classList.remove('on');
