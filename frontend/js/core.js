@@ -232,14 +232,24 @@ export function initTheme() {
   return saved;
 }
 
-export function toggleTheme() {
-  const current = document.documentElement.getAttribute('data-theme')
+/** The active theme, resolving "no choice made yet" against the OS setting. */
+export function currentTheme() {
+  return document.documentElement.getAttribute('data-theme')
     || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-  const next = current === 'dark' ? 'light' : 'dark';
+}
+
+/** Set the theme outright. A two-way switch needs this — expressing "go to
+ *  light" as a toggle means guessing what it is currently on. */
+export function setTheme(mode) {
+  const next = mode === 'dark' ? 'dark' : 'light';
   document.documentElement.setAttribute('data-theme', next);
-  localStorage.setItem('roadlens-theme', next);
+  try { localStorage.setItem('roadlens-theme', next); } catch { /* private mode */ }
   window.dispatchEvent(new CustomEvent('themechange', { detail: next }));
   return next;
+}
+
+export function toggleTheme() {
+  return setTheme(currentTheme() === 'dark' ? 'light' : 'dark');
 }
 
 /* ---------- Misc ---------- */
@@ -268,6 +278,13 @@ export function paintIcons(root = document) {
   if (!window.lucide?.createIcons) return;
   try {
     window.lucide.createIcons({ nameAttr: 'data-lucide', root });
+    // Lucide stamps its own `lucide lucide-<name>` classes on the SVG it
+    // creates. The stylesheets size icons through `.ico-svg` as well, and
+    // nothing was ever adding it — so every `.ico-svg` rule in the CSS was
+    // dead and those icons fell back to the 1em default. Tag them here, once,
+    // rather than teaching every rule both spellings.
+    root.querySelectorAll('svg.lucide:not(.ico-svg)')
+      .forEach((el) => el.classList.add('ico-svg'));
   } catch {
     // A missing icon name must never take a whole view down with it.
   }
@@ -400,7 +417,43 @@ export function wireHelp(root = document) {
   });
 }
 
+/* Anchor positioning is delegated to Floating UI (vendored UMD globals). The
+ * hand-rolled version flipped and clamped against the viewport only, which
+ * misplaced tips inside the scrolling wrappers — .table-wrap, .viewer — where
+ * most of the help dots actually live. `flip` and `shift` handle the scroll
+ * ancestors; `offset` replaces the manual 8px gap. */
+const FUI = () => window.FloatingUIDOM;
+
+/**
+ * Position `floating` against `anchor`. Falls back to a centred, clamped
+ * placement if the library is missing, so a failed asset copy degrades the
+ * tooltip rather than throwing on every hover.
+ */
+export function place(anchor, floating, { placement = 'top', offset = 8 } = {}) {
+  const fui = FUI();
+  if (!fui) {
+    const r = anchor.getBoundingClientRect();
+    const f = floating.getBoundingClientRect();
+    const above = r.top > f.height + offset + 4;
+    floating.style.top = `${above ? r.top - f.height - offset : r.bottom + offset}px`;
+    floating.style.left = `${clamp(r.left + r.width / 2 - f.width / 2, 8, innerWidth - f.width - 8)}px`;
+    return;
+  }
+  fui.computePosition(anchor, floating, {
+    placement,
+    strategy: 'fixed',
+    middleware: [
+      fui.offset(offset),
+      fui.flip({ padding: 8 }),
+      fui.shift({ padding: 8 }),
+    ],
+  }).then(({ x, y }) => {
+    Object.assign(floating.style, { left: `${x}px`, top: `${y}px` });
+  });
+}
+
 let helpTip;
+let helpCleanup;
 function showHelp(anchor, g) {
   if (!helpTip) {
     helpTip = document.createElement('div');
@@ -411,11 +464,14 @@ function showHelp(anchor, g) {
   helpTip.innerHTML = `<strong>${esc(g.term)}</strong><span>${esc(g.body)}</span>`;
   helpTip.classList.add('on');
 
-  const r = anchor.getBoundingClientRect();
-  const t = helpTip.getBoundingClientRect();
-  // Flip below the anchor when there is not enough room above it.
-  const above = r.top > t.height + 12;
-  helpTip.style.top = `${above ? r.top - t.height - 8 : r.bottom + 8}px`;
-  helpTip.style.left = `${clamp(r.left + r.width / 2 - t.width / 2, 8, innerWidth - t.width - 8)}px`;
+  // autoUpdate keeps the tip attached while the page or a parent scrolls.
+  helpCleanup?.();
+  const reposition = () => place(anchor, helpTip);
+  const fui = FUI();
+  helpCleanup = fui ? fui.autoUpdate(anchor, helpTip, reposition) : (reposition(), null);
 }
-const hideHelp = () => helpTip && helpTip.classList.remove('on');
+const hideHelp = () => {
+  helpCleanup?.();
+  helpCleanup = null;
+  helpTip && helpTip.classList.remove('on');
+};

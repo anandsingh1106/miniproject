@@ -5,7 +5,7 @@
  * geographic scatter in SVG instead — less useful, but never a broken panel.
  */
 
-import { bandColor, bandGlyph, esc, num, currency } from './core.js';
+import { bandColor, bandGlyph, esc, num, currency } from './core.js?v=25';
 
 let mapInstance = null;
 

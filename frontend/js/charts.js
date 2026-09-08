@@ -7,7 +7,8 @@
  * labels, a hover layer on every chart and a table view behind each one.
  */
 
-import { esc, num } from './core.js';
+import { esc, num, place } from './core.js?v=25';
+import { animate, reducedMotion } from '../ui/ui.js?v=25';
 
 const NS = 'http://www.w3.org/2000/svg';
 
@@ -24,17 +25,66 @@ function tooltip() {
   return tip;
 }
 
+/* The chart tip tracks the cursor rather than an element, so it is anchored to
+ * a Floating UI virtual element — a zero-size rect at the pointer. That gets
+ * the same flip/shift behaviour as the help tip, which matters for marks near
+ * the right edge of a chart or inside a scrolling card. */
 function showTip(evt, html) {
   const t = tooltip();
   t.innerHTML = html;
   t.classList.add('on');
-  const r = t.getBoundingClientRect();
-  const x = Math.max(r.width / 2 + 6, Math.min(innerWidth - r.width / 2 - 6, evt.clientX));
-  const y = Math.max(r.height + 12, evt.clientY - 12);
-  t.style.left = `${x}px`;
-  t.style.top = `${y}px`;
+  const virtual = {
+    getBoundingClientRect: () => ({
+      width: 0, height: 0,
+      x: evt.clientX, y: evt.clientY,
+      top: evt.clientY, bottom: evt.clientY,
+      left: evt.clientX, right: evt.clientX,
+    }),
+  };
+  place(virtual, t, { placement: 'top', offset: 12 });
 }
 const hideTip = () => tip && tip.classList.remove('on');
+
+/* ---------- entrance ---------- */
+
+/**
+ * Wipe a chart in from the left. Applied to the whole plot group rather than
+ * to individual marks, so it works the same for bars, lines and areas without
+ * touching their geometry.
+ */
+export function revealChart(svgEl, { duration = 0.55 } = {}) {
+  if (!svgEl || reducedMotion() || !window.Motion) return;
+  const id = `clip-${Math.random().toString(36).slice(2, 8)}`;
+  const NSU = 'http://www.w3.org/2000/svg';
+  const vb = (svgEl.getAttribute('viewBox') || '0 0 100 100').split(/\s+/).map(Number);
+  const [, , w, h] = vb;
+
+  const defs = document.createElementNS(NSU, 'defs');
+  const clip = document.createElementNS(NSU, 'clipPath');
+  clip.setAttribute('id', id);
+  const rect = document.createElementNS(NSU, 'rect');
+  rect.setAttribute('x', 0);
+  rect.setAttribute('y', 0);
+  rect.setAttribute('height', h);
+  rect.setAttribute('width', 0);
+  clip.append(rect);
+  defs.append(clip);
+  svgEl.prepend(defs);
+
+  // Move the drawn content under the clip, leaving defs where it is.
+  const group = document.createElementNS(NSU, 'g');
+  group.setAttribute('clip-path', `url(#${id})`);
+  [...svgEl.childNodes].filter((n) => n !== defs).forEach((n) => group.append(n));
+  svgEl.append(group);
+
+  animate(rect, { width: [0, w] }, { duration, easing: 'ease-out' })
+    .then(() => {
+      // Unwrap once done: a live clip-path breaks the hover hit areas.
+      [...group.childNodes].forEach((n) => svgEl.append(n));
+      group.remove();
+      defs.remove();
+    });
+}
 
 /* ---------- helpers ---------- */
 
@@ -185,7 +235,121 @@ export function hbar(mount, data, opts = {}) {
   });
 
   mount.append(s);
+  revealChart(s);
   mount.append(dataTable(data, opts.valueLabel || 'Value', format, unit));
+}
+
+/* ==========================================================================
+   Donut
+   ==========================================================================
+   For a part-to-whole split of a single measure into a handful of ordered
+   bins — the one shape a stacked bar reads worse than. Deliberately not
+   offered for anything above five slices: past that the arcs stop being
+   comparable and a bar chart is the honest answer.
+   ========================================================================== */
+
+/** Ring sector between two angles, drawn clockwise from 12 o'clock. */
+function arcPath(cx, cy, rOut, rIn, a0, a1) {
+  const at = (r, a) => [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+  const large = a1 - a0 > Math.PI ? 1 : 0;
+  const [x0, y0] = at(rOut, a0);
+  const [x1, y1] = at(rOut, a1);
+  const [x2, y2] = at(rIn, a1);
+  const [x3, y3] = at(rIn, a0);
+  return `M${x0},${y0}A${rOut},${rOut} 0 ${large} 1 ${x1},${y1}`
+       + `L${x2},${y2}A${rIn},${rIn} 0 ${large} 0 ${x3},${y3}Z`;
+}
+
+/**
+ * @param {HTMLElement} mount
+ * @param {Array<{label,value,color?,sub?}>} data
+ * @param {object} opts { size, thickness, centre, centreSub, valueLabel, format, title }
+ */
+export function donut(mount, data, opts = {}) {
+  const {
+    size = 176,
+    thickness = 26,
+    centre = '',
+    centreSub = '',
+    valueLabel = 'Segments',
+    format = (v) => num(v),
+    title = '',
+  } = opts;
+
+  mount.innerHTML = '';
+  const total = data.reduce((a, d) => a + (d.value || 0), 0);
+  if (!total) {
+    mount.innerHTML = '<div class="empty" style="padding:24px">No data yet.</div>';
+    return;
+  }
+
+  const cx = size / 2;
+  const cy = size / 2;
+  const rOut = size / 2 - 2;
+  const rIn = rOut - thickness;
+
+  const s = svg(size, size, { 'aria-label': title || 'Donut chart' });
+  s.classList.add('donut');
+
+  let a = -Math.PI / 2;
+  data.forEach((d) => {
+    const frac = (d.value || 0) / total;
+    if (frac <= 0) return;
+    const a1 = a + frac * Math.PI * 2;
+    // A single full slice has no arc — the start and end points coincide, and
+    // the path collapses to nothing. Draw it as a plain ring instead.
+    const mark = frac > 0.9999
+      ? node('circle', {
+          class: 'mark', cx, cy, r: (rOut + rIn) / 2,
+          fill: 'none', stroke: d.color || 'var(--series-1)', 'stroke-width': thickness,
+        })
+      : node('path', {
+          class: 'mark', d: arcPath(cx, cy, rOut, rIn, a, a1),
+          fill: d.color || 'var(--series-1)',
+        });
+    const pct = Math.round(frac * 100);
+    mark.addEventListener('mousemove', (e) => showTip(e, `
+      <div class="t-title">${esc(d.label)}</div>
+      <div class="t-row">
+        <span class="k"><span style="width:9px;height:9px;border-radius:2px;display:inline-block;background:${d.color || 'var(--series-1)'}"></span>${esc(valueLabel)}</span>
+        <span class="v">${esc(format(d.value))} · ${pct}%</span>
+      </div>
+      ${d.sub ? `<div class="t-row"><span class="k">${esc(d.sub)}</span></div>` : ''}`));
+    mark.addEventListener('mouseleave', hideTip);
+    s.append(mark);
+    a = a1;
+  });
+
+  if (centre) {
+    const big = node('text', { class: 'donut-centre', x: cx, y: cy - 1, 'text-anchor': 'middle' });
+    big.textContent = centre;
+    s.append(big);
+  }
+  if (centreSub) {
+    const small = node('text', {
+      class: 'donut-centre-sub', x: cx, y: cy + 15, 'text-anchor': 'middle',
+    });
+    small.textContent = centreSub;
+    s.append(small);
+  }
+
+  // Legend carries the share, so the arcs never need a label pointing at them.
+  const list = document.createElement('ul');
+  list.className = 'donut-legend';
+  list.innerHTML = data.map((d) => `
+    <li>
+      <span class="swatch" style="background:${d.color || 'var(--series-1)'}"></span>
+      <span class="k">${esc(d.label)}</span>
+      <span class="pc">${Math.round(((d.value || 0) / total) * 100)}%</span>
+      <span class="v">${esc(format(d.value))}</span>
+    </li>`).join('');
+
+  const wrap = document.createElement('div');
+  wrap.className = 'donut-wrap';
+  wrap.append(s, list);
+  mount.append(wrap);
+  revealChart(s);
+  mount.append(dataTable(data, valueLabel, format));
 }
 
 /* ==========================================================================
@@ -304,6 +468,7 @@ export function line(mount, series, opts = {}) {
   });
 
   mount.append(s);
+  revealChart(s);
   if (series.length >= 2) mount.append(legend(series, true));
   mount.append(lineTable(cats, series, format));
 }
