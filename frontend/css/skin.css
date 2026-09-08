@@ -1,0 +1,1137 @@
+/* ==========================================================================
+   Skin — the "airy dashboard" surface treatment.
+   ==========================================================================
+   Loaded last, after ui/themes.css, so it has the final word on *shape and
+   surface*. It deliberately declares no colour of its own: every value below
+   is derived from the tokens app.css / css/material.css already define, which
+   is what keeps the four palette presets and both colour schemes working.
+
+   What it changes, and why:
+     · the page ground gains a faint accent wash, so white cards read as
+       floating rather than as holes cut in a flat grey;
+     · the rail becomes a tinted column with rounded nav pills;
+     · the top bar gains a real search field, which is the fastest route to a
+       segment and was previously only reachable via Network then filter;
+     · cards, tiles and controls move to the larger radius and the softer,
+       blue-tinted elevation set in material.css.
+   ========================================================================== */
+
+/* ===== Page ground ======================================================== */
+
+/* A fixed wash rather than a gradient on <body>: it must not scroll with the
+   content or repeat once the page is taller than the viewport. */
+body::before {
+  content: "";
+  position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(1100px 620px at 4% -10%,
+      color-mix(in srgb, var(--accent) 13%, transparent), transparent 68%),
+    radial-gradient(900px 520px at 100% -4%,
+      color-mix(in srgb, var(--accent) 7%, transparent), transparent 62%);
+}
+
+/* ===== Sidebar ============================================================ */
+
+.sidebar {
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--accent) 9%, var(--surface-1)) 0%,
+      color-mix(in srgb, var(--accent) 3%, var(--surface-1)) 46%,
+      var(--surface-1) 100%);
+  /* The hairline was doing the separating; the tint now does it, and a full
+     strength border on top of a tint reads as a seam. */
+  border-right: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+}
+
+.side-brand {
+  gap: 12px; padding: 0 16px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+}
+/* The mark sits in a filled badge — the one place the accent is used at full
+   strength, so the eye has somewhere to land when it enters the page. */
+.side-brand > svg {
+  width: 38px; height: 38px; padding: 7px; flex: none;
+  border-radius: 12px; color: var(--md-on-primary);
+  background: linear-gradient(145deg,
+    var(--accent), color-mix(in srgb, var(--accent) 78%, #000));
+  box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--accent) 65%, transparent);
+}
+.side-brand-text { font-size: 15.5px; font-weight: 700; }
+.side-brand-text small { font-size: 10.5px; margin-top: 1px; }
+
+.side-nav { padding: 16px 12px; }
+.side-group + .side-group { margin-top: 20px; }
+.side-group-label { padding: 0 12px 8px; font-size: 10px; letter-spacing: .1em; }
+
+.side-nav a {
+  /* A soft rectangle, not a capsule: at full radius a 42px-tall row reads as
+     a button, and seven buttons in a column read as a toolbar. */
+  border-radius: 11px;
+  padding: 10px 12px; gap: 12px; margin-bottom: 3px;
+  font-size: 13.5px; font-weight: 540;
+}
+.side-nav a .ico-svg { width: 18px; height: 18px; opacity: .72; }
+
+.side-nav a.active {
+  background: var(--accent-weak);
+  color: color-mix(in srgb, var(--accent) 76%, var(--text-primary));
+  font-weight: 640;
+  box-shadow: 0 2px 8px -4px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.side-nav a.active .ico-svg { opacity: 1; }
+
+.side-foot { padding: 14px; border-top-color: color-mix(in srgb, var(--border) 55%, transparent); }
+.side-foot .engine-pill {
+  padding: 8px 12px; border-radius: 11px;
+  background: color-mix(in srgb, var(--surface-2) 70%, transparent);
+}
+
+/* ===== Top bar ============================================================ */
+
+.topbar {
+  gap: 16px; padding: 0 20px;
+  /* Translucent again: the ground's wash showing through is what stops the
+     bar reading as a separate grey slab above the page. */
+  background: color-mix(in srgb, var(--surface-1) 82%, transparent);
+  backdrop-filter: saturate(1.5) blur(12px);
+  -webkit-backdrop-filter: saturate(1.5) blur(12px);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
+}
+.crumb { flex: 0 0 auto; font-size: 15px; font-weight: 640; color: var(--text-primary); }
+
+.topbar-right { gap: 6px; margin-left: auto; }
+.topbar .icon-btn {
+  width: 38px; height: 38px;
+  background: color-mix(in srgb, var(--surface-2) 65%, transparent);
+}
+.topbar .icon-btn .ico-svg { width: 18px; height: 18px; }
+
+/* ---- Global search ------------------------------------------------------
+   Sits between the crumb and the actions, and grows into the space the two
+   leave. `position: relative` anchors the results panel. */
+
+.topsearch {
+  position: relative; flex: 1 1 380px; max-width: 420px; min-width: 0;
+  display: flex; align-items: center; gap: 9px;
+  height: 38px; padding: 0 14px;
+  border-radius: var(--md-shape-full, 999px);
+  background: color-mix(in srgb, var(--surface-2) 75%, transparent);
+  border: 1px solid transparent;
+  transition: background .16s, border-color .16s, box-shadow .16s;
+}
+.topsearch:focus-within {
+  background: var(--surface-1);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.topsearch .ico-svg { width: 16px; height: 16px; flex: none; color: var(--text-muted); }
+.topsearch input {
+  flex: 1 1 auto; min-width: 0; width: auto;
+  border: 0; background: none; padding: 0; font-size: 13.5px;
+  color: var(--text-primary);
+}
+.topsearch input:focus { outline: none; box-shadow: none; border: 0; }
+.topsearch input::-webkit-search-cancel-button { -webkit-appearance: none; }
+
+/* Results. Hidden until there is something to show, so an empty panel never
+   flashes between keystrokes. */
+.topsearch-results {
+  position: absolute; top: calc(100% + 8px); left: 0; right: 0; z-index: 120;
+  padding: 6px; border-radius: var(--radius);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  max-height: 60vh; overflow-y: auto;
+}
+.topsearch-results button {
+  display: flex; width: 100%; gap: 10px; align-items: center;
+  padding: 8px 10px; border: 0; border-radius: var(--radius-sm);
+  background: none; font: inherit; text-align: left; cursor: pointer;
+  color: var(--text-primary);
+}
+.topsearch-results button:hover,
+.topsearch-results button:focus-visible { background: var(--surface-2); }
+/* The row's two lines are spans, so they need to be stacked explicitly —
+   inline children of a flex item sit side by side. */
+.topsearch-results[hidden] { display: none; }
+.topsearch-results .r-main {
+  flex: 1 1 auto; min-width: 0;
+  display: flex; flex-direction: column;
+}
+.topsearch-results .r-name {
+  font-size: 13px; font-weight: 570; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.topsearch-results .r-sub { font-size: 11.5px; color: var(--text-muted); }
+.topsearch-results .r-empty { padding: 12px 10px; font-size: 12.5px; color: var(--text-muted); }
+
+/* The bell's unread count. */
+.icon-btn.has-badge { overflow: visible; }
+.icon-btn::before { border-radius: inherit; }
+.icon-btn .badge {
+  position: absolute; top: 1px; right: 0;
+  min-width: 16px; height: 16px; padding: 0 4px;
+  display: grid; place-items: center;
+  border-radius: 999px; background: var(--status-critical); color: #fff;
+  font-size: 9.5px; font-weight: 700; line-height: 1;
+  border: 2px solid var(--surface-1);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===== Cards ============================================================== */
+
+.card {
+  background: var(--surface-1);
+  border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+.card-head { padding: 18px 22px 14px; }
+.card-head h2, .card-head h3 { font-size: 15px; font-weight: 640; letter-spacing: -.014em; }
+.card-body { padding: 18px 22px 22px; }
+.card-body.flush { padding: 0; }
+.card-body.tight { padding: 12px; }
+.card-foot {
+  padding: 14px 22px; border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  background: color-mix(in srgb, var(--surface-2) 55%, transparent);
+}
+.card:has(tr.clickable):hover { box-shadow: var(--shadow-md); }
+
+/* ===== Stat tiles =========================================================
+   The reference layout is a soft round icon beside the figure. Tiles that ship
+   a `.stat-ico` get that row; the rest keep the stacked layout, so views that
+   were not touched still look right. */
+
+.stat {
+  background: var(--surface-1);
+  border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-sm);
+}
+/* The accent hairline was the old tie between the tiles; the icon badges do
+   that job now, and both together is one signal too many. */
+.stat::after { display: none; }
+
+.stat:has(.stat-ico) { display: flex; align-items: flex-start; gap: 14px; }
+.stat .stat-ico {
+  flex: none; width: 42px; height: 42px; margin-top: 2px;
+  display: grid; place-items: center; border-radius: 12px;
+  /* The tile sets `color` inline, so one rule tints every badge. */
+  background: color-mix(in srgb, currentColor 14%, transparent);
+}
+.stat .stat-ico .ico-svg { width: 20px; height: 20px; }
+.stat .stat-text { flex: 1 1 auto; min-width: 0; }
+.stat .label {
+  font-size: 11px; letter-spacing: .05em; font-weight: 620;
+  display: flex; align-items: center; gap: 4px;
+}
+.stat .value { font-size: 30px; font-weight: 700; letter-spacing: -.032em; margin-top: 6px; }
+.stat .sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+.stat:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+
+/* ===== Welcome banner =====================================================
+   Replaces the dashboard's page-head. A page title that only ever says
+   "Network condition" is a label; this says who is looking, when, and how big
+   the thing they are looking at is. */
+
+.welcome {
+  display: flex; align-items: center; gap: 16px;
+  padding: 18px 22px; margin-bottom: 18px;
+  border-radius: var(--radius-lg);
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  background: linear-gradient(110deg,
+    color-mix(in srgb, var(--accent) 13%, var(--surface-1)),
+    color-mix(in srgb, var(--accent) 4%, var(--surface-1)) 62%,
+    var(--surface-1));
+}
+.welcome-ico {
+  flex: none; width: 40px; height: 40px; display: grid; place-items: center;
+  border-radius: 50%; color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface-1));
+}
+.welcome-ico .ico-svg { width: 20px; height: 20px; }
+.welcome-text { flex: 1 1 auto; min-width: 0; }
+.welcome-text h1 {
+  font-size: 21px; font-weight: 700; letter-spacing: -.026em; margin: 0;
+}
+.welcome-text p { margin: 2px 0 0; font-size: 13.5px; color: var(--text-secondary); }
+.welcome-meta { flex: none; text-align: right; }
+.welcome-meta .w-date {
+  font-size: 13px; font-weight: 620; color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.welcome-meta .w-note {
+  display: flex; align-items: center; justify-content: flex-end; gap: 6px;
+  margin-top: 3px; font-size: 12px; color: var(--text-muted);
+}
+.welcome-meta .ico-svg { width: 14px; height: 14px; color: var(--status-good); }
+
+/* ===== Dashboard main row =================================================
+   The side column (notice + distribution + condition) runs about 700px; the
+   map card at its natural height stops around 520px. shell.css sizes every
+   grid to its content — right for a row of cards with footnotes, wrong here,
+   where it left ~180px of bare page ground under the map.
+
+   So this one row stretches, and the map — not the card's padding — takes up
+   the slack. The card becomes a column so the map can claim what is left
+   after the head, and keeps a floor so it stays usable when the side column
+   is the shorter of the two. */
+
+.dash-main { align-items: stretch; }
+.dash-main > .card { display: flex; flex-direction: column; }
+.dash-main > .card > #map {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 420px;
+  /* Matches the card it is sitting in, which moved to the larger radius. */
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+/* The side column's own cards keep their content height; the column stretches
+   so the row does, and the leftover falls at the bottom where nothing shows. */
+.dash-main > .side-stack { justify-content: flex-start; }
+
+@media (max-width: 1280px) {
+  /* Single column below here (shell.css), so there is no row to match. */
+  .dash-main > .card > #map { min-height: 380px; }
+}
+
+/* ===== Card extras ======================================================== */
+
+/* A card head that carries a title and a line of explanation stops being a
+   single row, so it aligns to the top of the block rather than its middle. */
+.card-head:has(.card-sub) { align-items: flex-start; }
+.card-sub {
+  margin: 3px 0 0; font-size: 12.5px; font-weight: 450;
+  color: var(--text-muted); line-height: 1.45;
+}
+
+/* The dashboard's right-hand column. */
+.side-stack { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+/* The critical backlog, as a card rather than a full-width banner: at the top
+   of the page it pushed everything below the fold, and it is a standing
+   condition of the network, not a transient message. */
+.card.notice {
+  border-color: color-mix(in srgb, var(--status-critical) 32%, transparent);
+  background: color-mix(in srgb, var(--status-critical) 7%, var(--surface-1));
+}
+.notice-row { display: flex; gap: 12px; align-items: flex-start; }
+.notice-ico {
+  flex: none; width: 32px; height: 32px; display: grid; place-items: center;
+  border-radius: 50%; color: #fff; background: var(--status-critical);
+}
+.notice-ico .ico-svg { width: 17px; height: 17px; }
+.card.notice h3 {
+  font-size: 14.5px; font-weight: 660;
+  color: color-mix(in srgb, var(--status-critical) 78%, var(--text-primary));
+}
+.card.notice p { margin: 5px 0 12px; font-size: 13px; line-height: 1.55; }
+.card.notice .btn.danger { border-color: transparent; }
+
+/* A change figure beside the measure it belongs to. Only ever rendered where
+   a real comparison exists — see the note in js/view-dashboard.js. */
+.delta {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 3px 9px; border-radius: 999px;
+  font-size: 11.5px; font-weight: 660; font-variant-numeric: tabular-nums;
+  background: color-mix(in srgb, currentColor 13%, transparent);
+}
+.delta.up   { color: var(--status-good); }
+.delta.down { color: var(--status-critical); }
+
+/* ===== Donut ============================================================== */
+
+.donut-wrap { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.donut-wrap .donut { flex: none; width: 176px; height: 176px; }
+/* A 2px gap of the card's own surface between adjacent arcs, so two similar
+   tones never merge into one wedge. */
+.donut .mark { stroke: var(--surface-1); stroke-width: 2; }
+.donut-centre {
+  fill: var(--text-primary); font-size: 26px; font-weight: 700;
+  letter-spacing: -.03em; font-variant-numeric: tabular-nums;
+}
+.donut-centre-sub { fill: var(--text-muted); font-size: 11px; }
+
+.donut-legend {
+  flex: 1 1 150px; min-width: 0; list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 9px;
+}
+.donut-legend li {
+  display: flex; align-items: center; gap: 9px; font-size: 12.5px;
+}
+.donut-legend .swatch { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.donut-legend .k {
+  flex: 1 1 auto; min-width: 0; color: var(--text-secondary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.donut-legend .v { font-weight: 650; font-variant-numeric: tabular-nums; }
+
+/* ===== Queue table extras ================================================= */
+
+th.rank, td.rank { width: 42px; padding-right: 0; }
+.rank-dot {
+  display: grid; place-items: center; width: 24px; height: 24px;
+  border-radius: 50%; font-size: 11.5px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  /* The band colours are the reserved status palette, so the rank marker is a
+     tint of the row's own band rather than a sixth colour. */
+  background: color-mix(in srgb, currentColor 15%, transparent);
+}
+.rank-dot.band-P1 { color: var(--status-critical); }
+.rank-dot.band-P2 { color: var(--status-serious); }
+.rank-dot.band-P3 { color: var(--status-warning); }
+.rank-dot.band-P4 { color: var(--status-good); }
+.row-action {
+  font-size: 12.5px; font-weight: 600; color: var(--accent); white-space: nowrap;
+}
+tr.clickable:hover .row-action { text-decoration: underline; text-underline-offset: 2px; }
+
+/* ===== Map view =========================================================== */
+
+.g-map { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr) minmax(0, 340px); }
+.map-tall { height: min(70vh, 620px); width: 100%; border-radius: var(--radius-lg); }
+.map-bands { display: flex; gap: 8px; flex-wrap: wrap; }
+.band-toggle {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 13px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--surface-1);
+  color: var(--text-secondary); font: inherit; font-size: 12.5px; font-weight: 570;
+}
+.band-toggle::before {
+  content: ""; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--chip, var(--text-muted));
+}
+.band-toggle .n {
+  font-variant-numeric: tabular-nums; font-weight: 700;
+  color: var(--text-muted);
+}
+.band-toggle:hover { border-color: var(--border-strong); }
+.band-toggle.active {
+  background: var(--accent-weak); border-color: transparent;
+  color: color-mix(in srgb, var(--accent) 76%, var(--text-primary));
+}
+.band-toggle.active .n { color: inherit; }
+
+.map-row {
+  display: flex; width: 100%; align-items: center; gap: 11px;
+  padding: 11px 18px; border: 0; background: none; cursor: pointer;
+  font: inherit; text-align: left; color: var(--text-primary);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+}
+.map-row:last-child { border-bottom: 0; }
+.map-row:hover { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+.map-row .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.map-row .m-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.map-row .m-name {
+  font-size: 13px; font-weight: 570;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.map-row .m-sub { font-size: 11.5px; color: var(--text-muted); }
+.map-row .m-cost {
+  flex: none; font-size: 12.5px; font-weight: 620;
+  font-variant-numeric: tabular-nums; color: var(--text-secondary);
+}
+
+.map-list { max-height: min(70vh, 620px); overflow-y: auto; }
+
+/* ===== Sidebar brand card ================================================= */
+
+.side-card {
+  padding: 14px; border-radius: 14px; text-align: left;
+  background: linear-gradient(160deg,
+    color-mix(in srgb, var(--accent) 14%, var(--surface-1)),
+    color-mix(in srgb, var(--status-good) 8%, var(--surface-1)));
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+.side-card-art {
+  width: 34px; height: 34px; display: grid; place-items: center;
+  border-radius: 10px; margin-bottom: 9px;
+  color: var(--status-good);
+  background: color-mix(in srgb, var(--status-good) 16%, var(--surface-1));
+}
+.side-card-title {
+  font-size: 12.5px; font-weight: 660; line-height: 1.35;
+  letter-spacing: -.01em; margin-bottom: 10px;
+}
+.side-card .engine-pill { width: 100%; justify-content: center; }
+
+/* ===== Theme switch ======================================================= */
+
+.theme-switch {
+  display: inline-flex; gap: 2px; padding: 3px; flex: none;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-2) 65%, transparent);
+}
+.theme-switch button {
+  width: 32px; height: 32px; display: grid; place-items: center;
+  border: 0; border-radius: 50%; background: transparent; cursor: pointer;
+  color: var(--text-muted); padding: 0;
+  transition: background .14s, color .14s;
+}
+.theme-switch button .ico-svg { width: 16px; height: 16px; }
+.theme-switch button:hover { color: var(--text-primary); }
+/* aria-pressed is the state, so the style reads from it rather than from a
+   class kept in sync by hand. */
+.theme-switch button[aria-pressed="true"] {
+  background: var(--surface-1); color: var(--accent);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ===== Profile chip ======================================================= */
+
+.profile-chip {
+  display: inline-flex; align-items: center; gap: 10px; flex: none;
+  padding: 4px 10px 4px 4px; margin-left: 4px;
+  border: 1px solid transparent; border-radius: 999px;
+  background: transparent; cursor: pointer; font: inherit;
+  color: var(--text-primary);
+  transition: background .14s, border-color .14s;
+}
+.profile-chip:hover { background: color-mix(in srgb, var(--surface-2) 70%, transparent); }
+.profile-chip[aria-expanded="true"] { border-color: var(--border); }
+.profile-chip .avatar {
+  flex: none; width: 34px; height: 34px; display: grid; place-items: center;
+  border-radius: 50%; font-size: 12.5px; font-weight: 700; letter-spacing: .02em;
+  color: var(--md-on-primary);
+  background: linear-gradient(145deg,
+    var(--accent), color-mix(in srgb, var(--accent) 76%, #000));
+}
+.profile-chip .who { display: flex; flex-direction: column; text-align: left; line-height: 1.2; }
+.profile-chip .who-name { font-size: 13px; font-weight: 620; }
+.profile-chip .who-role { font-size: 11px; color: var(--text-muted); }
+.profile-chip .ico-svg { width: 15px; height: 15px; color: var(--text-muted); }
+
+@media (max-width: 1240px) {
+  /* Name and role are the first thing to go — the avatar still identifies it. */
+  .profile-chip .who { display: none; }
+  .profile-chip > .ico-svg { display: none; }
+  .profile-chip { padding: 4px; }
+}
+
+@media (max-width: 1100px) {
+  .g-map { grid-template-columns: minmax(0, 1fr); }
+  .map-list { max-height: 340px; }
+}
+
+@media (max-width: 760px) {
+  .welcome { flex-wrap: wrap; }
+  .welcome-meta { text-align: left; width: 100%; }
+  .welcome-meta .w-note { justify-content: flex-start; }
+  .donut-wrap { justify-content: center; }
+}
+
+/* ===== Controls =========================================================== */
+
+/* Material's outlined button used the full-strength outline, which on this
+   lighter ground read as a boxed link. */
+.btn { border-color: color-mix(in srgb, var(--border-strong) 42%, transparent); }
+.btn.primary {
+  box-shadow: 0 6px 16px -8px color-mix(in srgb, var(--accent) 85%, transparent);
+}
+.btn.primary:hover:not(:disabled) {
+  box-shadow: 0 8px 20px -8px color-mix(in srgb, var(--accent) 95%, transparent);
+}
+
+input[type="text"], input[type="number"], input[type="search"], select, textarea {
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  border-color: color-mix(in srgb, var(--border-strong) 38%, transparent);
+  background: var(--surface-1);
+}
+input[type="text"]:hover, input[type="number"]:hover,
+input[type="search"]:hover, select:hover {
+  border-color: color-mix(in srgb, var(--border-strong) 60%, transparent);
+}
+
+.filters {
+  padding: 16px 18px;
+  border-radius: var(--radius-lg);
+  border-color: color-mix(in srgb, var(--border) 75%, transparent);
+  box-shadow: var(--shadow-sm);
+  gap: 12px;
+}
+
+.seg-control { border-radius: var(--md-shape-full, 999px); padding: 3px; }
+.seg-control button { border-radius: 999px; padding: 5px 13px; }
+
+/* ===== Tables ============================================================= */
+
+/* A filled header band fights a white card. A near-transparent tint under
+   muted small caps says "header" just as clearly, and keeps the row the eye
+   lands on the data. */
+thead th {
+  background: color-mix(in srgb, var(--surface-2) 45%, var(--surface-1));
+  border-bottom: 1px solid var(--border);
+  padding: 11px 16px;
+}
+tbody td {
+  padding: 12px 16px;
+  border-bottom-color: color-mix(in srgb, var(--border) 60%, transparent);
+}
+tr.clickable:hover { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+
+/* ===== Alerts, chips, panels ============================================= */
+
+.alert { border-radius: var(--radius); padding: 14px 16px; }
+.band { border-radius: 999px; }
+.tag { border-radius: 999px; padding: 3px 9px; }
+
+.ui-panel { border-radius: var(--radius-lg); }
+.chart-tip { border-radius: var(--radius-sm); }
+
+/* ===== Page header ======================================================== */
+
+.page-head { margin-bottom: 22px; }
+.page-head h1 { font-size: 26px; font-weight: 700; letter-spacing: -.03em; }
+.page-head .lede { color: var(--text-secondary); }
+
+/* --------------------------------------------------------------------------
+   On the dark ground the light-mode recipe inverts badly, so four things are
+   re-stated below. Duplicated across the media query and the [data-theme]
+   attribute the way app.css and material.css already do it — plain CSS cannot
+   share one rule between a media query and a selector.
+
+     1. The rail and the bar sit on the *page* tone, not the card tone. In
+        light the card tone is the brighter one, so a rail built from it lifts;
+        in dark it is lighter than the ground, so the same rule made the rail
+        float above a page it is supposed to frame.
+     2. The wash is halved. At 13% over a near-black ground the accent stops
+        being a wash and becomes a visible blue glow.
+     3. The active pill is a filled accent, not a tint. --accent-weak is a deep
+        navy here, and a deep navy pill on a deep navy rail is not an
+        indicator. Mixed down towards the ground so white clears 4.5:1 on it.
+     4. Card hairlines run at full strength. At 75% they disappear, and the
+        border is what separates a card from the ground now that the shadow
+        cannot.
+   -------------------------------------------------------------------------- */
+
+[data-theme="dark"] .sidebar {
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--accent) 7%, var(--surface-0)) 0%,
+    var(--surface-0) 55%);
+  border-right-color: var(--border);
+}
+[data-theme="dark"] .topbar {
+  background: color-mix(in srgb, var(--surface-0) 86%, transparent);
+  border-bottom-color: var(--border);
+}
+[data-theme="dark"] body::before {
+  background:
+    radial-gradient(1100px 620px at 4% -10%,
+      color-mix(in srgb, var(--accent) 7%, transparent), transparent 70%),
+    radial-gradient(900px 520px at 100% -4%,
+      color-mix(in srgb, var(--accent) 4%, transparent), transparent 64%);
+}
+[data-theme="dark"] .side-nav a.active {
+  background: color-mix(in srgb, var(--accent) 72%, var(--surface-0));
+  color: #fff;
+  box-shadow: 0 4px 14px -6px color-mix(in srgb, var(--accent) 80%, transparent);
+}
+[data-theme="dark"] .card,
+[data-theme="dark"] .stat,
+[data-theme="dark"] .filters { border-color: var(--border); }
+[data-theme="dark"] .icon-btn .badge { border-color: var(--surface-0); }
+[data-theme="dark"] .side-foot .engine-pill { background: var(--surface-2); }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .sidebar {
+    background: linear-gradient(180deg,
+      color-mix(in srgb, var(--accent) 7%, var(--surface-0)) 0%,
+      var(--surface-0) 55%);
+    border-right-color: var(--border);
+  }
+  :root:not([data-theme="light"]) .topbar {
+    background: color-mix(in srgb, var(--surface-0) 86%, transparent);
+    border-bottom-color: var(--border);
+  }
+  :root:not([data-theme="light"]) body::before {
+    background:
+      radial-gradient(1100px 620px at 4% -10%,
+        color-mix(in srgb, var(--accent) 7%, transparent), transparent 70%),
+      radial-gradient(900px 520px at 100% -4%,
+        color-mix(in srgb, var(--accent) 4%, transparent), transparent 64%);
+  }
+  :root:not([data-theme="light"]) .side-nav a.active {
+    background: color-mix(in srgb, var(--accent) 72%, var(--surface-0));
+    color: #fff;
+    box-shadow: 0 4px 14px -6px color-mix(in srgb, var(--accent) 80%, transparent);
+  }
+  :root:not([data-theme="light"]) .card,
+  :root:not([data-theme="light"]) .stat,
+  :root:not([data-theme="light"]) .filters { border-color: var(--border); }
+  :root:not([data-theme="light"]) .icon-btn .badge { border-color: var(--surface-0); }
+  :root:not([data-theme="light"]) .side-foot .engine-pill { background: var(--surface-2); }
+}
+
+/* ===== Breadcrumb =========================================================
+   The bar's crumb and a page breadcrumb say the same thing twice, so on wide
+   screens the page keeps it and the bar gives the width to the search. Below
+   860px the search collapses to its icon, and the crumb comes back — that is
+   the only place left that names the page above the fold. */
+
+.crumb { display: none; }
+@media (max-width: 860px) { .crumb { display: block; flex: 1 1 auto; } }
+
+.breadcrumb {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-bottom: 14px; font-size: 12.5px; color: var(--text-muted);
+}
+.breadcrumb a { color: var(--text-muted); font-weight: 550; }
+.breadcrumb a:hover { color: var(--accent); text-decoration: none; }
+.breadcrumb [aria-current="page"] { color: var(--text-secondary); font-weight: 600; }
+
+/* ===== Analyse ============================================================
+   The form used to sit in the 340px column of .g-side, which left the three
+   field rows below stacking one control per line. Even columns give the form
+   room to be three-up and the result panel room for a full report. */
+
+.g-analyse {
+  display: grid; gap: 16px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
+}
+@media (max-width: 1180px) { .g-analyse { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---- Dropzone ---- */
+
+.dropzone {
+  border: 2px dashed color-mix(in srgb, var(--accent) 34%, var(--border-strong));
+  border-radius: var(--radius);
+  padding: 34px 22px;
+  background: color-mix(in srgb, var(--accent) 4%, var(--surface-1));
+}
+.dropzone:hover, .dropzone.over {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface-1));
+}
+.dz-ico {
+  display: grid; place-items: center; width: 52px; height: 52px;
+  margin: 0 auto 12px; border-radius: 14px; color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-1));
+}
+/* app.css dims the dropzone glyph to half strength; inside a filled badge it
+   is the only mark there and should read at full. */
+.dropzone .dz-ico svg.lucide { width: 24px; height: 24px; opacity: 1; margin: 0; }
+.dropzone .big { font-size: 15px; font-weight: 650; margin-bottom: 2px; }
+.dropzone .small { font-size: 13px; color: var(--text-secondary); }
+.dropzone .tiny { font-size: 11.5px; color: var(--text-muted); margin-top: 7px; }
+
+/* ---- Samples ---- */
+
+.samples-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; margin-bottom: 9px;
+}
+.samples-label { font-size: 12.5px; font-weight: 620; color: var(--text-secondary); }
+/* Six samples ship in the manifest, so three across gives two even rows —
+   four would leave a short row of two. */
+.samples { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.sample { border-radius: var(--radius-sm); aspect-ratio: 4 / 3; }
+.sample .cap {
+  padding: 14px 8px 6px; font-size: 11px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, .78));
+}
+@media (max-width: 620px) { .samples { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* ---- Checkbox pair ---- */
+
+.check-pair {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 16px; margin: 4px 0 6px;
+}
+.check-pair .check { margin: 0; align-items: flex-start; font-weight: 550; }
+.check .c-sub {
+  display: block; font-size: 11.5px; font-weight: 450;
+  color: var(--text-muted); line-height: 1.4; margin-top: 1px;
+}
+@media (max-width: 520px) { .check-pair { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---- Advanced fields ---- */
+
+.more-fields {
+  margin: 14px 0 16px;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface-2) 45%, transparent);
+}
+.more-fields > summary {
+  display: flex; align-items: center; gap: 8px;
+  padding: 11px 14px; cursor: pointer; user-select: none;
+  font-size: 12.5px; font-weight: 600; color: var(--text-secondary);
+  list-style: none;
+}
+.more-fields > summary::-webkit-details-marker { display: none; }
+.more-fields > summary:hover { color: var(--text-primary); }
+.more-fields > summary .ico-svg { width: 15px; height: 15px; }
+/* The disclosure arrow, drawn rather than borrowed from the UA so it rotates. */
+.more-fields > summary::after {
+  content: "›"; margin-left: auto; font-size: 16px; line-height: 1;
+  transition: transform .16s;
+}
+.more-fields[open] > summary::after { transform: rotate(90deg); }
+.more-fields[open] > summary {
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+.more-body { padding: 14px; }
+.more-body .field:last-of-type { margin-bottom: 0; }
+
+/* ---- The run button ---- */
+
+.btn.cta {
+  width: 100%; margin-top: 4px; padding: 13px 20px;
+  font-size: 14.5px; font-weight: 620;
+}
+/* Icon left, chevron right, label centred between them — the label stays put
+   whichever of the two icons is wider. */
+.btn.cta > span { flex: 1 1 auto; }
+.btn.cta .ico-svg { width: 18px; height: 18px; }
+
+/* ---- Empty result panel ---- */
+
+.analyse-empty { text-align: center; padding: 26px 8px 4px; }
+.ae-frame {
+  position: relative; width: 132px; height: 108px; margin: 0 auto 22px;
+  display: grid; place-items: center; color: var(--accent);
+}
+/* Corner brackets, as a viewfinder: four corners drawn with one element each
+   would be four extra spans, so this is two boxes clipped to opposite corners. */
+.ae-frame::before, .ae-frame::after {
+  content: ""; position: absolute; inset: 0;
+  border: 2px solid color-mix(in srgb, var(--accent) 38%, transparent);
+  border-radius: 10px;
+}
+.ae-frame::before { clip-path: polygon(0 0, 30% 0, 30% 4%, 4% 4%, 4% 30%, 0 30%); }
+.ae-frame::after {
+  clip-path: polygon(100% 100%, 70% 100%, 70% 96%, 96% 96%, 96% 70%, 100% 70%);
+}
+.ae-frame > .ico-svg {
+  width: 60px; height: 60px; stroke-width: 1.4;
+  color: color-mix(in srgb, var(--accent) 42%, var(--surface-3));
+}
+.analyse-empty h3 { font-size: 19px; font-weight: 680; letter-spacing: -.02em; }
+.analyse-empty > p {
+  margin: 8px auto 26px; max-width: 42ch;
+  font-size: 13.5px; line-height: 1.6; color: var(--text-secondary);
+}
+
+.feature-row {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px; margin-bottom: 24px;
+}
+.feature { text-align: center; }
+.f-ico {
+  display: grid; place-items: center; width: 52px; height: 52px;
+  margin: 0 auto 11px; border-radius: 50%;
+  background: color-mix(in srgb, currentColor 14%, transparent);
+}
+.f-ico .ico-svg { width: 22px; height: 22px; }
+.f-title { font-size: 13px; font-weight: 640; margin-bottom: 3px; }
+.f-sub {
+  font-size: 11.5px; line-height: 1.45; color: var(--text-muted);
+  max-width: 20ch; margin: 0 auto;
+}
+@media (max-width: 620px) {
+  .feature-row { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+  .f-sub { max-width: none; }
+}
+
+/* ===== Network register ===================================================
+   Five band tiles, a search-first filter bar, a sortable paged table.
+   ========================================================================== */
+
+.g-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+@media (max-width: 1320px) { .g-5 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 780px)  { .g-5 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 460px)  { .g-5 { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---- Compact tile ----
+   Five of these have to fit one row, so the figure leads and the name sits
+   under it — the dashboard's four tiles have the width to do it the other way
+   round, where the label reads first. */
+.stat.mini { padding: 14px 16px; }
+.stat.mini:has(.stat-ico) { align-items: center; gap: 12px; }
+.stat.mini .stat-ico { width: 40px; height: 40px; margin-top: 0; border-radius: 11px; }
+.stat.mini .stat-ico .ico-svg { width: 19px; height: 19px; }
+.stat.mini .value {
+  font-size: 24px; margin-top: 0; line-height: 1.1; letter-spacing: -.03em;
+}
+.stat.mini .label {
+  margin-top: 2px; font-size: 11.5px; font-weight: 550;
+  text-transform: none; letter-spacing: 0; color: var(--text-muted);
+}
+
+/* ---- Search-first filter bar ---- */
+
+.filters .search-field { position: relative; min-width: 240px; }
+.search-field .sf-ico {
+  position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
+  display: grid; place-items: center; pointer-events: none; color: var(--text-muted);
+}
+.search-field .sf-ico .ico-svg { width: 16px; height: 16px; }
+.search-field input[type="search"] {
+  padding-left: 38px; border-radius: 999px; height: 42px;
+}
+
+/* ---- Table header row ---- */
+
+.table-head { gap: 16px; flex-wrap: wrap; }
+.table-tools { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.table-tools .hint { font-size: 12.5px; }
+.sort-by { display: inline-flex; align-items: center; gap: 8px; }
+.sort-by > span { font-size: 12.5px; color: var(--text-muted); white-space: nowrap; }
+.sort-by select {
+  width: auto; min-width: 190px; padding: 6px 10px; font-size: 12.5px;
+  border-radius: var(--radius-sm);
+}
+
+/* ---- Rows ---- */
+
+/* Twelve columns will not fit a laptop without scrolling, so the cells are
+   tight and .table-wrap carries the overflow. */
+.register tbody td, .register thead th { padding: 10px 13px; }
+.register .cell-title { max-width: 30ch; }
+.register .cell-sub { max-width: 24ch; }
+
+.rank-n {
+  display: inline-grid; place-items: center; min-width: 22px; height: 22px;
+  font-size: 11.5px; font-weight: 650; color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+td.actions { white-space: nowrap; }
+.actions {
+  /* Right-aligned pair; the row's own click handler skips this cell. */
+  display: flex; align-items: center; gap: 4px; justify-content: flex-end;
+}
+.btn.sm.view-btn {
+  padding: 5px 12px; font-size: 12.5px; gap: 5px;
+  border-color: color-mix(in srgb, var(--accent) 32%, transparent);
+}
+.btn.sm.view-btn .ico-svg { width: 14px; height: 14px; }
+.icon-btn.row-menu { width: 30px; height: 30px; }
+.icon-btn.row-menu .ico-svg { width: 16px; height: 16px; }
+
+/* ---- Pager ---- */
+
+.card-foot.pager {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; flex-wrap: wrap;
+}
+.pager-count { font-size: 12.5px; color: var(--text-muted); }
+.pager-controls { display: flex; align-items: center; gap: 5px; }
+.page-btn {
+  min-width: 32px; height: 32px; padding: 0 8px;
+  display: inline-grid; place-items: center;
+  border: 1px solid color-mix(in srgb, var(--border-strong) 34%, transparent);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1); color: var(--text-secondary);
+  font: inherit; font-size: 12.5px; font-weight: 600;
+  font-variant-numeric: tabular-nums; cursor: pointer;
+  transition: background .13s, border-color .13s, color .13s;
+}
+.page-btn .ico-svg { width: 15px; height: 15px; }
+.page-btn:hover:not(:disabled) { border-color: var(--border-strong); color: var(--text-primary); }
+.page-btn:disabled { opacity: .45; cursor: not-allowed; }
+.page-btn.active {
+  background: var(--accent); border-color: var(--accent);
+  color: var(--md-on-primary);
+}
+.per-page select {
+  width: auto; padding: 6px 9px; font-size: 12.5px; margin-left: 5px;
+  border-radius: var(--radius-sm);
+}
+
+@media (max-width: 700px) {
+  .card-foot.pager { justify-content: center; }
+  .table-tools { width: 100%; justify-content: space-between; }
+  .sort-by select { min-width: 0; }
+}
+
+/* ===== Budget allocation ================================================== */
+
+/* The explainer that used to be the page lede. As a banner it stays out of the
+   heading's way and takes the link to the full method with it. */
+.alert.banner { align-items: center; gap: 12px; margin-bottom: 16px; }
+.alert.banner .banner-link {
+  margin-left: auto; flex: none; font-size: 12.5px; font-weight: 620;
+  white-space: nowrap;
+}
+
+/* A share, stated beside the label rather than competing with the figure. */
+.stat .label .pct {
+  margin-left: auto; font-size: 11.5px; font-weight: 700;
+  letter-spacing: 0; color: var(--text-secondary);
+}
+.mini-bar {
+  display: block; height: 5px; margin-top: 9px; border-radius: 3px;
+  background: var(--surface-3); overflow: hidden;
+}
+.mini-bar > span { display: block; height: 100%; border-radius: 3px; }
+
+/* The utilisation row: a wide bar beside a donut of the same split. 2.35fr is
+   right for a table next to a chart, too wide for two charts. */
+.budget-main { grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); }
+@media (max-width: 1280px) { .budget-main { grid-template-columns: minmax(0, 1fr); } }
+
+.util-line { margin: 0 0 14px; font-size: 13.5px; color: var(--text-secondary); }
+.util-line strong { font-size: 17px; color: var(--text-primary); letter-spacing: -.02em; }
+
+/* One bar, segmented by band, ending in the unallocated remainder — so the
+   money that was not spent is as visible as the money that was. */
+.util-bar {
+  display: flex; height: 14px; border-radius: 999px; overflow: hidden;
+  background: var(--surface-3);
+}
+.util-bar > span { display: block; height: 100%; }
+/* A 2px gap of the card's surface between fills, the same rule the charts use. */
+.util-bar > span + span { box-shadow: -2px 0 0 var(--surface-1); }
+.util-bar .unallocated,
+.ul-dot.unallocated { background: var(--surface-3); }
+
+.util-legend {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px 18px; margin-top: 16px;
+}
+.ul-item { display: flex; align-items: baseline; gap: 8px; font-size: 12.5px; min-width: 0; }
+.ul-dot {
+  width: 9px; height: 9px; border-radius: 50%; flex: none;
+  transform: translateY(1px);
+}
+.ul-k {
+  color: var(--text-secondary); white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.ul-v {
+  margin-left: auto; font-weight: 650; white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.ul-v .muted { font-weight: 500; }
+
+/* ---- Donut legend, now three columns ---- */
+
+.donut-legend .pc {
+  font-weight: 650; font-variant-numeric: tabular-nums;
+  color: var(--text-secondary); flex: none;
+}
+.donut-legend .v { flex: none; min-width: 62px; text-align: right; }
+
+/* ---- Funded / deferred tables ---- */
+
+.count-pill {
+  display: inline-flex; align-items: center; padding: 4px 11px;
+  border-radius: 999px; font-size: 11.5px; font-weight: 620;
+  white-space: nowrap;
+  background: var(--surface-2); color: var(--text-secondary);
+}
+.count-pill.good {
+  background: color-mix(in srgb, var(--status-good) 13%, transparent);
+  color: color-mix(in srgb, var(--status-good) 72%, var(--text-primary));
+}
+.count-pill.warn {
+  background: color-mix(in srgb, var(--status-warning) 18%, transparent);
+  color: color-mix(in srgb, var(--status-warning) 62%, var(--text-primary));
+}
+
+.plan-table td, .plan-table th { padding: 10px 13px; }
+.plan-table .cell-title { max-width: 22ch; }
+.plan-table .cell-sub { max-width: 22ch; }
+
+/* Value per rupee. Three steps of the accent, not a green-to-red scale: the
+   figure is a magnitude, and red/amber/green belongs to the priority bands. */
+.vpr {
+  display: inline-block; min-width: 42px; padding: 3px 9px;
+  border-radius: 999px; font-size: 11.5px; font-weight: 660;
+  font-variant-numeric: tabular-nums; text-align: center;
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  color: var(--text-muted);
+}
+.vpr.mid {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: color-mix(in srgb, var(--accent) 80%, var(--text-primary));
+}
+.vpr.high {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  color: color-mix(in srgb, var(--accent) 88%, var(--text-primary));
+}
+
+.show-all {
+  display: block; width: 100%; padding: 12px 18px;
+  border: 0; border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  background: none; cursor: pointer; font: inherit;
+  font-size: 12.5px; font-weight: 620; color: var(--accent); text-align: left;
+}
+.show-all:hover { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+
+/* ---- Simulate bar ---- */
+
+/* The control sits under its result, not above it: the tiles and charts are
+   what you are reading, and the slider is what you nudge while watching them. */
+.sim-bar {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  margin-top: 16px; padding: 16px 20px;
+  border-radius: var(--radius-lg);
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+  background: linear-gradient(110deg,
+    color-mix(in srgb, var(--accent) 10%, var(--surface-1)),
+    var(--surface-1) 70%);
+}
+.sim-ico {
+  flex: none; width: 38px; height: 38px; display: grid; place-items: center;
+  border-radius: 50%; color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface-1));
+}
+.sim-tip {
+  flex: 1 1 260px; min-width: 0; margin: 0;
+  font-size: 12.5px; line-height: 1.5; color: var(--text-secondary);
+}
+.sim-control { flex: 0 1 380px; min-width: 260px; }
+.sim-control label {
+  display: flex; align-items: baseline; gap: 8px; margin-bottom: 7px;
+  font-size: 12.5px; font-weight: 600; color: var(--text-secondary);
+}
+.sim-control label .mono {
+  margin-left: auto; font-size: 14px; font-weight: 700; color: var(--text-primary);
+}
+.sim-control .seg-control { margin-top: 9px; display: flex; width: 100%; }
+.sim-control .seg-control button { flex: 1 1 0; }
+
+@media (max-width: 720px) {
+  .alert.banner { flex-wrap: wrap; }
+  .alert.banner .banner-link { margin-left: 0; }
+  .sim-control { flex-basis: 100%; }
+}
+
+/* ===== Responsive ========================================================= */
+
+@media (max-width: 1100px) {
+  .topsearch { flex-basis: 240px; }
+}
+
+@media (max-width: 860px) {
+  /* Below this the crumb and the actions need the row to themselves, so the
+     search collapses to its icon and drops open as a full-width bar. */
+  .topsearch {
+    position: absolute; top: 100%; left: 0; right: 0;
+    max-width: none; margin: 8px 14px; width: auto;
+    background: var(--surface-1); border-color: var(--border);
+    box-shadow: var(--shadow-md);
+  }
+  .topbar:not(.search-open) .topsearch { display: none; }
+  .search-toggle { display: inline-flex; }
+}
+@media (min-width: 861px) {
+  .search-toggle { display: none; }
+}
+
+@media (max-width: 700px) {
+  .stat .value { font-size: 26px; }
+  .card-body { padding: 16px; }
+  .card-head { padding: 16px 16px 12px; }
+  .card-foot { padding: 12px 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stat:hover { transform: none; }
+}

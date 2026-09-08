@@ -1,0 +1,156 @@
+/* ==========================================================================
+   Theme presets.
+   ==========================================================================
+   app.css defines the tokens and every component reads them, so restyling the
+   whole interface means overriding tokens here — not touching component rules.
+   Load order matters: this file comes after app.css in index.html.
+
+   Apply one with:   document.documentElement.dataset.preset = 'slate';
+   or from the console:  RoadLensTheme.set('slate')
+
+   The four data-preset blocks below each override a handful of tokens. To make
+   your own, copy a block, rename it, and change the values — nothing else in
+   the codebase needs to know it exists.
+
+   Only surface/accent/radius tokens are safe to retheme freely. The status
+   palette (--status-*), the categorical slots (--series-*) and the sequential
+   ramp (--seq-*) carry data meaning: priority bands are states, damage types
+   are identities, condition is a magnitude. Changing those changes what a
+   chart says, so they are deliberately left alone by every preset here.
+   ========================================================================== */
+
+/* ----- Slate: cooler, higher-contrast neutrals ----- */
+
+:root[data-preset="slate"] {
+  --surface-0: #eef1f5;
+  --surface-1: #ffffff;
+  --surface-2: #e6eaf0;
+  --surface-3: #d8dee6;
+  --border: #d4dae2;
+  --border-strong: #b9c2ce;
+  --text-primary: #0f172a;
+  --text-secondary: #45526b;
+  --text-muted: #6b7891;
+  --accent: #3f5bd9;
+  --accent-weak: #e6ebfd;
+  --grid: #e4e8ee;
+  --axis: #ccd4de;
+}
+
+:root[data-preset="slate"]:is([data-theme="dark"], :not([data-theme="light"])) {
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-preset="slate"]:not([data-theme="light"]) {
+    --surface-0: #0d1117;
+    --surface-1: #151b23;
+    --surface-2: #1d242e;
+    --surface-3: #28313d;
+    --border: #262f3b;
+    --border-strong: #3a4552;
+    --text-primary: #e8edf4;
+    --text-secondary: #a4b1c4;
+    --text-muted: #78869b;
+    --accent: #7d93f5;
+    --accent-weak: #1c2544;
+    --grid: #1e2631;
+    --axis: #2f3945;
+  }
+}
+:root[data-preset="slate"][data-theme="dark"] {
+  --surface-0: #0d1117;
+  --surface-1: #151b23;
+  --surface-2: #1d242e;
+  --surface-3: #28313d;
+  --border: #262f3b;
+  --border-strong: #3a4552;
+  --text-primary: #e8edf4;
+  --text-secondary: #a4b1c4;
+  --text-muted: #78869b;
+  --accent: #7d93f5;
+  --accent-weak: #1c2544;
+  --grid: #1e2631;
+  --axis: #2f3945;
+}
+
+/* ----- Forest: warm paper ground, green accent ----- */
+
+:root[data-preset="forest"] {
+  --surface-0: #f3f5f0;
+  --surface-1: #fdfdfb;
+  --surface-2: #eaeee4;
+  --surface-3: #dde3d4;
+  --border: #dbe0d3;
+  --border-strong: #c2cab8;
+  --accent: #2f7d4f;
+  --accent-weak: #e4f2e8;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-preset="forest"]:not([data-theme="light"]) {
+    --surface-0: #101410;
+    --surface-1: #171d18;
+    --surface-2: #1f2620;
+    --surface-3: #2a332b;
+    --border: #262e27;
+    --border-strong: #3a453c;
+    --accent: #5fb883;
+    --accent-weak: #16281d;
+  }
+}
+:root[data-preset="forest"][data-theme="dark"] {
+  --surface-0: #101410;
+  --surface-1: #171d18;
+  --surface-2: #1f2620;
+  --surface-3: #2a332b;
+  --border: #262e27;
+  --border-strong: #3a453c;
+  --accent: #5fb883;
+  --accent-weak: #16281d;
+}
+
+/* ----- Contrast: heavier borders, square corners, no shadows.
+        Useful on projectors and low-quality displays. ----- */
+
+:root[data-preset="contrast"] {
+  --surface-0: #ffffff;
+  --surface-1: #ffffff;
+  --surface-2: #f0f0f0;
+  --surface-3: #e0e0e0;
+  --border: #8a8a8a;
+  --border-strong: #333333;
+  --text-primary: #000000;
+  --text-secondary: #2a2a2a;
+  --text-muted: #4a4a4a;
+  --accent: #0f4fc4;
+  --accent-weak: #dce7fb;
+  --radius: 3px;
+  --radius-sm: 2px;
+  --radius-lg: 4px;
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: 0 0 0 1px #333333;
+  --grid: #d0d0d0;
+  --axis: #8a8a8a;
+}
+:root[data-preset="contrast"] .card,
+:root[data-preset="contrast"] .ui-panel { border-width: 2px; }
+
+/* ----- Compact: same colours, tighter geometry and type.
+        Layered on top of whatever palette is active. ----- */
+
+:root[data-density="compact"] {
+  --radius: 7px;
+  --radius-sm: 5px;
+  --radius-lg: 10px;
+  --nav-h: 48px;
+}
+:root[data-density="compact"] body { font-size: 13px; }
+:root[data-density="compact"] .card-body { padding: 13px 15px; }
+:root[data-density="compact"] .card-head { padding: 11px 15px; }
+:root[data-density="compact"] .ui-panel-body { padding: 14px; }
+:root[data-density="compact"] thead th,
+:root[data-density="compact"] tbody td { padding: 6px 10px; }
+:root[data-density="compact"] .stat .value { font-size: 24px; }
+:root[data-density="compact"] .btn { padding: 6px 12px; font-size: 13px; }

@@ -1,0 +1,285 @@
+/* ==========================================================================
+   Shell — sidebar rail, content column, and the component restyle that goes
+   with them.
+   ==========================================================================
+   Loaded after app.css, so these rules win where they overlap. Everything
+   below reads the same tokens as the rest of the app, which is what keeps the
+   theme presets in ui/themes.css working unchanged.
+   ========================================================================== */
+
+/* The rail and the content column live inside #shell, not directly under
+   body, so the grid belongs on #shell — on body it would leave both children
+   stacked in a single 232px column. */
+#shell {
+  display: grid;
+  grid-template-columns: var(--side-w) minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+/* ===== Sidebar ============================================================ */
+
+.sidebar {
+  grid-column: 1;
+  position: sticky; top: 0; z-index: 70;
+  height: 100vh; display: flex; flex-direction: column;
+  border-right: 1px solid var(--border);
+}
+
+.side-brand {
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 18px; height: var(--nav-h); flex: 0 0 auto;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+}
+.side-brand svg { flex: none; }
+.side-brand-text {
+  display: flex; flex-direction: column; line-height: 1.15;
+  font-weight: 680; font-size: 15px; letter-spacing: -.02em;
+}
+.side-brand-text small {
+  font-weight: 450; font-size: 10.5px; letter-spacing: 0;
+  color: var(--text-muted); margin-top: 2px;
+}
+
+.side-nav { flex: 1 1 auto; overflow-y: auto; padding: 14px 10px; }
+
+.side-group + .side-group { margin-top: 18px; }
+.side-group-label {
+  padding: 0 10px 7px; font-size: 10.5px; font-weight: 650;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted);
+}
+
+/* Layout only — the rail's shape, colour and state layer are Material's
+   (css/material.css), so they are not repeated here. */
+.side-nav a {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 2px; font-size: 13.5px; font-weight: 520;
+  text-decoration: none; position: relative;
+}
+.side-nav a:hover { text-decoration: none; }
+.side-nav a .ico-svg { width: 17px; height: 17px; flex: none; opacity: .8; }
+.side-nav a.active .ico-svg { opacity: 1; }
+
+.side-foot { flex: 0 0 auto; padding: 12px 14px; border-top: 1px solid var(--border); }
+.side-foot .engine-pill { width: 100%; justify-content: center; }
+
+/* ===== Content column ===================================================== */
+
+.content { grid-column: 2; min-width: 0; display: flex; flex-direction: column; }
+
+.topbar {
+  position: sticky; top: 0; z-index: 60;
+  height: var(--nav-h); flex: 0 0 auto;
+  display: flex; align-items: center; gap: 14px; padding: 0 22px;
+  border-bottom: 1px solid var(--border);
+}
+.crumb {
+  flex: 1 1 auto; min-width: 0; font-weight: 600; font-size: 14px;
+  letter-spacing: -.01em; color: var(--text-secondary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.topbar-right { display: flex; align-items: center; gap: 8px; flex: none; }
+.nav-toggle { display: none; }
+
+main {
+  padding: 28px 22px 80px;
+  max-width: 1380px; width: 100%; margin: 0 auto;
+  flex: 1 1 auto; min-width: 0;
+}
+
+/* ===== Page header ======================================================== */
+
+.page-head { margin-bottom: 24px; align-items: center; }
+.page-head h1 { font-size: 27px; letter-spacing: -.028em; font-weight: 680; }
+.page-head .lede { font-size: 14px; line-height: 1.6; max-width: 68ch; }
+
+/* ===== Cards ============================================================== */
+
+.card {
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow .18s, border-color .18s;
+}
+.card-head { padding: 16px 20px; }
+.card-head h2, .card-head h3 {
+  font-size: 14px; font-weight: 660; letter-spacing: -.01em;
+}
+.card-body { padding: 20px; }
+.card-foot { border-radius: 0 0 var(--radius) var(--radius); }
+
+/* ===== Stat tiles ========================================================= */
+
+.stat {
+  position: relative; padding: 17px 19px; border-radius: var(--radius);
+  overflow: hidden;
+}
+/* A hairline of the accent along the top edge ties the row of tiles together
+   without adding a fill that would compete with the value. */
+.stat::after {
+  content: ""; position: absolute; inset: 0 0 auto 0; height: 2px;
+  background: linear-gradient(90deg, var(--accent), transparent 65%);
+  opacity: .5;
+}
+.stat .label { font-size: 11px; letter-spacing: .06em; }
+.stat .value {
+  font-size: 33px; font-weight: 700; letter-spacing: -.035em; margin-top: 7px;
+}
+.stat .sub { font-size: 12.5px; color: var(--text-muted); margin-top: 3px; }
+
+/* Buttons, inputs and focus rings are Material's (css/material.css). */
+
+/* ===== Tables ============================================================= */
+
+thead th {
+  font-size: 10.5px; letter-spacing: .07em;
+  background: var(--surface-2); color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+}
+tbody tr { transition: background .12s; }
+tr.clickable:hover { background: var(--surface-2); }
+
+/* The rail costs 232px of table width, so cells are tighter than they were on
+   the full-bleed layout. Keeping the segment name on one line — and letting it
+   ellipsis rather than wrap to three — is what stops rows growing tall enough
+   to push the queue below the fold. */
+tbody td { padding: 9px 12px; }
+thead th { padding: 9px 12px; }
+.cell-title {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 26ch;
+}
+.cell-sub {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 26ch; font-size: 11.5px;
+}
+/* A currency figure split across two lines ("₹5.86" / "Cr") reads as two
+   numbers. Numeric cells stay on one line. */
+td.num, th.num { white-space: nowrap; }
+
+/* The rail narrows the content column, so the dashboard's main/side split
+   needs a bigger share for the table — at 1.85fr the queue's cost column was
+   clipping behind the horizontal scroller. */
+.g-main { grid-template-columns: minmax(0, 2.35fr) minmax(0, 1fr); }
+
+@media (max-width: 1280px) {
+  .g-main { grid-template-columns: minmax(0, 1fr); }
+  .g-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* ===== Alerts ============================================================= */
+
+.alert { border-radius: var(--radius); padding: 14px 17px; }
+
+/* ===== Polish pass ========================================================
+   Refinements found by reading the rendered pages rather than the markup:
+   the grid competed with the bars, cards stretched past their content, and
+   the accent hairline on the stat tiles was too faint to register.
+   ========================================================================== */
+
+/* Grid is scaffolding — it should be felt, not read. At full --grid strength
+   it was crossing the bars and reading as part of the data. */
+.chart .grid-line { stroke: color-mix(in srgb, var(--grid) 55%, transparent); }
+.chart .axis-line { stroke: color-mix(in srgb, var(--axis) 70%, transparent); }
+.chart .cat-label { font-size: 11.5px; }
+
+/* Rounded bar ends soften the chart without changing what it says. */
+.chart .mark { rx: 2; }
+
+/* Cards in a row stretch to the tallest, which left the short ones with a
+   band of dead space under their footnote. Let each size to its content —
+   except on the dashboard's main/side split, where the side card holds a
+   chart that reads better at a stable height than squeezed to its minimum. */
+.grid { align-items: start; }
+
+/* A bar chart compressed to its minimum row height stops being readable.
+   A floor on the chart keeps it legible without stretching its card. */
+.card-body > div:has(> svg.chart) { min-height: 168px; }
+
+/* The tile hairline read as a rendering artefact at .5 opacity; at full
+   strength with a wider fade it reads as deliberate. */
+.stat::after {
+  height: 3px; opacity: 1;
+  background: linear-gradient(90deg, var(--accent), transparent 78%);
+}
+.stat {
+  transition: border-color .16s, box-shadow .16s, transform .16s;
+}
+.stat:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+/* Cards lift on hover only where they are interactive; a static card that
+   moves under the cursor is noise. */
+.card:has(tr.clickable):hover { box-shadow: var(--shadow-md); }
+
+/* A footnote is an aside, not body copy. */
+.card-foot { font-size: 12px; line-height: 1.55; }
+
+/* Section headings sit closer to their card than to the one above it. */
+.card-head { border-bottom-color: color-mix(in srgb, var(--border) 70%, transparent); }
+
+/* Priority chips: the outline variant was nearly invisible on the deep ground.
+   A tinted fill keeps the band colour dominant while staying legible. */
+.band {
+  font-weight: 620; letter-spacing: -.005em;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  border-color: color-mix(in srgb, currentColor 45%, transparent);
+}
+
+/* Tags (road class) were competing with the segment name. */
+.tag {
+  background: var(--surface-2); border-color: var(--border);
+  color: var(--text-muted); font-weight: 600; font-size: 10.5px;
+  letter-spacing: .04em;
+}
+
+/* Links carry the accent; give them a considered underline rather than the
+   browser default that sits on the descenders. */
+a { text-underline-offset: 2px; text-decoration-thickness: 1px; }
+
+/* The alert is the loudest thing on the dashboard — let its colour do the
+   work through a left rule instead of a full border. */
+/* The alert's colour is Material's error-container role (css/material.css). */
+
+/* Empty and loading states were centred in a tall box with no vertical
+   rhythm of their own. */
+.empty { padding: 40px 22px; }
+
+/* Scrollbars: the default light-on-dark bar was brighter than the content. */
+* { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong); border-radius: 6px;
+  border: 3px solid var(--surface-0); background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--text-muted); background-clip: padding-box; }
+
+/* ===== Mobile ============================================================= */
+
+@media (max-width: 900px) {
+  #shell { grid-template-columns: minmax(0, 1fr); }
+
+  .sidebar {
+    position: fixed; inset: 0 auto 0 0; width: var(--side-w);
+    transform: translateX(-100%); transition: transform .22s ease;
+    box-shadow: var(--shadow-lg);
+  }
+  body.nav-open .sidebar { transform: translateX(0); }
+
+  .content { grid-column: 1; }
+  .nav-toggle { display: inline-flex; }
+
+  .scrim {
+    position: fixed; inset: 0; z-index: 65;
+    background: rgba(13, 18, 32, .45); backdrop-filter: blur(2px);
+  }
+
+  main { padding: 22px 16px 72px; }
+  .page-head h1 { font-size: 23px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar { transition: none; }
+}

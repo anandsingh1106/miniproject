@@ -1,0 +1,588 @@
+/* ==========================================================================
+   Material Design 3
+   ==========================================================================
+   Google's Material 3 applied as a token layer, not a component library. The
+   app has no bundler, so pulling in @material/web would mean a second parallel
+   component system beside the existing .btn/.card. Instead this file defines
+   the M3 *roles* and maps the app's own tokens onto them — every existing
+   component picks up Material colour, elevation and shape without being
+   rewritten.
+
+   The three ideas doing the work:
+
+   1. Colour roles, not colour values. M3 names a colour by its job
+      (primary / on-primary / surface-container / outline), so a component
+      asks for "the thing text sits on" rather than a hex code.
+
+   2. Tonal elevation. In M3 a raised surface is not a drop shadow — it is a
+      lighter tone of the same colour. Shadows stay, but they are secondary.
+
+   3. State layers. Hover, focus and press are a translucent scrim of the
+      *foreground* colour laid over the component, at fixed opacities
+      (8% / 10% / 10%), rather than ad-hoc background swaps.
+
+   Loaded after app.css and before shell.css, so shell keeps the last word on
+   layout and ui/themes.css can still override everything for its presets.
+   ========================================================================== */
+
+:root {
+  /* ---- M3 key colours -------------------------------------------------
+     Generated from an indigo source colour, the app's existing accent, so
+     the shift reads as a refinement rather than a different product. */
+  --md-primary:            #2563eb;
+  --md-on-primary:         #ffffff;
+  --md-primary-container:  #dce8ff;
+  --md-on-primary-container: #0b2a63;
+
+  --md-secondary:          #4a5a78;
+  --md-on-secondary:       #ffffff;
+  --md-secondary-container: #dde7f8;
+  --md-on-secondary-container: #16203a;
+
+  --md-tertiary:           #0e7490;
+  --md-tertiary-container: #cfeaf5;
+
+  --md-error:              #ba1a1a;
+  --md-on-error:           #ffffff;
+  --md-error-container:    #ffdad6;
+  --md-on-error-container: #410002;
+
+  /* ---- Surfaces -------------------------------------------------------
+     M3 replaces "elevation 1..5" shadows with tonal containers: each step
+     mixes a little more primary into the surface. The result is that depth
+     survives in dark mode, where drop shadows are nearly invisible. */
+  --md-surface:            #f6f9fe;
+  --md-surface-dim:        #dbe2ee;
+  --md-surface-bright:     #ffffff;
+  --md-surface-container-lowest: #ffffff;
+  --md-surface-container-low:    #f1f5fc;
+  --md-surface-container:        #e9eff9;
+  --md-surface-container-high:   #e0e8f5;
+  --md-surface-container-highest:#d7e1f1;
+
+  --md-on-surface:         #101828;
+  --md-on-surface-variant: #48566f;
+  --md-outline:            #6f7f99;
+  --md-outline-variant:    #dde5f0;
+
+  /* ---- Shape scale ----------------------------------------------------
+     M3 shape is a small fixed scale, not arbitrary radii. */
+  --md-shape-xs:  6px;
+  --md-shape-sm:  10px;
+  --md-shape-md:  14px;
+  --md-shape-lg:  20px;
+  --md-shape-xl:  28px;
+  --md-shape-full: 999px;
+
+  /* ---- Elevation ------------------------------------------------------
+     Kept deliberately soft: in M3 the tonal surface carries most of the
+     depth and the shadow only confirms it. */
+  --md-elev-0: none;
+  --md-elev-1: 0 1px 2px rgba(16, 32, 72, .05), 0 1px 3px rgba(16, 32, 72, .04);
+  --md-elev-2: 0 1px 2px rgba(16, 32, 72, .04), 0 8px 20px -8px rgba(16, 32, 72, .16);
+  --md-elev-3: 0 2px 6px rgba(16, 32, 72, .06), 0 22px 46px -16px rgba(16, 32, 72, .26);
+
+  /* ---- State layer opacities (fixed by the spec) ---------------------- */
+  --md-state-hover: .08;
+  --md-state-focus: .10;
+  --md-state-press: .10;
+
+  /* ---- Motion ---------------------------------------------------------
+     M3's standard easing: fast out, slow in. The emphasised curve is for
+     larger, more expressive transitions. */
+  --md-ease-standard:   cubic-bezier(.2, 0, 0, 1);
+  --md-ease-emphasised: cubic-bezier(.2, 0, 0, 1);
+  --md-ease-decelerate: cubic-bezier(0, 0, 0, 1);
+  --md-dur-short:  .15s;
+  --md-dur-medium: .25s;
+  --md-dur-long:   .40s;
+
+  /* ---- Map the app's existing tokens onto the M3 roles -----------------
+     This is what lets every component built before today adopt Material
+     without being touched. */
+  --surface-0:      var(--md-surface-container-low);
+  --surface-1:      var(--md-surface-container-lowest);
+  --surface-2:      var(--md-surface-container);
+  --surface-3:      var(--md-surface-container-high);
+
+  --border:         var(--md-outline-variant);
+  --border-strong:  var(--md-outline);
+
+  --text-primary:   var(--md-on-surface);
+  --text-secondary: var(--md-on-surface-variant);
+  --text-muted:     var(--md-outline);
+  --text-inverse:   var(--md-on-primary);
+
+  --accent:         var(--md-primary);
+  --accent-hover:   #4038c9;
+  --accent-weak:    var(--md-primary-container);
+
+  --radius:     var(--md-shape-md);
+  --radius-sm:  var(--md-shape-sm);
+  --radius-lg:  var(--md-shape-lg);
+
+  --shadow-sm:  var(--md-elev-1);
+  --shadow-md:  var(--md-elev-2);
+  --shadow-lg:  var(--md-elev-3);
+
+  --grid: var(--md-outline-variant);
+  --axis: var(--md-outline);
+
+  /* Shell metrics. Set here rather than in css/skin.css so ui/themes.css —
+     which loads later — can still shrink them for the compact density. */
+  --nav-h:  66px;
+  --side-w: 250px;
+}
+
+/* ===== Dark scheme =========================================================
+   M3 dark is not an inversion: the surface tones move up while the key
+   colours become lighter and less saturated, so contrast is kept without
+   glare. */
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --md-primary:            #5c9bff;
+    --md-on-primary:         #04162e;
+    --md-primary-container:  #1b3a6b;
+    --md-on-primary-container: #d6e6ff;
+
+    --md-secondary:          #aebdd6;
+    --md-on-secondary:       #1d2942;
+    --md-secondary-container: #26344f;
+    --md-on-secondary-container: #dbe5f7;
+
+    --md-tertiary:           #7fd0ea;
+    --md-tertiary-container: #1d4959;
+
+    --md-error:              #ffb4ab;
+    --md-on-error:           #690005;
+    --md-error-container:    #93000a;
+    --md-on-error-container: #ffdad6;
+
+    --md-surface:            #0a0f1c;
+    --md-surface-dim:        #070b15;
+    --md-surface-bright:     #263349;
+    --md-surface-container-lowest: #070b15;
+    --md-surface-container-low:    #111a2b;
+    --md-surface-container:        #162033;
+    --md-surface-container-high:   #1d2942;
+    --md-surface-container-highest:#26344f;
+
+    --md-on-surface:         #e9eefb;
+    --md-on-surface-variant: #a8b8d0;
+    --md-outline:            #8497b4;
+    --md-outline-variant:    #1e2a41;
+
+    /* Depth on this ground comes from the hairline border, not the shadow —
+       a heavy drop shadow on a near-black surface only muddies its edge. */
+    --md-elev-1: 0 1px 2px rgba(0,0,0,.4);
+    --md-elev-2: 0 2px 10px rgba(0,0,0,.5),  0 1px 2px rgba(0,0,0,.4);
+    --md-elev-3: 0 12px 34px rgba(0,0,0,.62), 0 2px 6px rgba(0,0,0,.5);
+
+    --accent-hover: #85b6ff;
+    /* Dark surfaces are lighter as they rise, so the page ground is the
+       dimmest tone and cards sit above it. */
+    --surface-0:  var(--md-surface);
+    --surface-1:  var(--md-surface-container-low);
+    --surface-2:  var(--md-surface-container);
+    --surface-3:  var(--md-surface-container-high);
+
+    --accent:        var(--md-primary);
+    --accent-weak:   var(--md-primary-container);
+    --border:        var(--md-outline-variant);
+    --border-strong: var(--md-outline);
+    --text-primary:   var(--md-on-surface);
+    --text-secondary: var(--md-on-surface-variant);
+    --text-muted:     var(--md-outline);
+    --text-inverse:   var(--md-on-primary);
+    --grid: var(--md-outline-variant);
+    --axis: var(--md-outline);
+    --shadow-sm: var(--md-elev-1);
+    --shadow-md: var(--md-elev-2);
+    --shadow-lg: var(--md-elev-3);
+  }
+}
+
+[data-theme="dark"] {
+  --md-primary:            #5c9bff;
+  --md-on-primary:         #04162e;
+  --md-primary-container:  #1b3a6b;
+  --md-on-primary-container: #d6e6ff;
+
+  --md-secondary:          #aebdd6;
+  --md-on-secondary:       #1d2942;
+  --md-secondary-container: #26344f;
+  --md-on-secondary-container: #dbe5f7;
+
+  --md-tertiary:           #7fd0ea;
+  --md-tertiary-container: #1d4959;
+
+  --md-error:              #ffb4ab;
+  --md-on-error:           #690005;
+  --md-error-container:    #93000a;
+  --md-on-error-container: #ffdad6;
+
+  --md-surface:            #0a0f1c;
+  --md-surface-dim:        #070b15;
+  --md-surface-bright:     #263349;
+  --md-surface-container-lowest: #070b15;
+  --md-surface-container-low:    #111a2b;
+  --md-surface-container:        #162033;
+  --md-surface-container-high:   #1d2942;
+  --md-surface-container-highest:#26344f;
+
+  --md-on-surface:         #e9eefb;
+  --md-on-surface-variant: #a8b8d0;
+  --md-outline:            #8497b4;
+  --md-outline-variant:    #1e2a41;
+
+  /* Depth on this ground comes from the hairline border, not the shadow —
+     a heavy drop shadow on a near-black surface only muddies its edge. */
+  --md-elev-1: 0 1px 2px rgba(0,0,0,.4);
+  --md-elev-2: 0 2px 10px rgba(0,0,0,.5),  0 1px 2px rgba(0,0,0,.4);
+  --md-elev-3: 0 12px 34px rgba(0,0,0,.62), 0 2px 6px rgba(0,0,0,.5);
+
+  --accent-hover: #85b6ff;
+  --surface-0:  var(--md-surface);
+  --surface-1:  var(--md-surface-container-low);
+  --surface-2:  var(--md-surface-container);
+  --surface-3:  var(--md-surface-container-high);
+
+  --accent:        var(--md-primary);
+  --accent-weak:   var(--md-primary-container);
+  --border:        var(--md-outline-variant);
+  --border-strong: var(--md-outline);
+  --text-primary:   var(--md-on-surface);
+  --text-secondary: var(--md-on-surface-variant);
+  --text-muted:     var(--md-outline);
+  --text-inverse:   var(--md-on-primary);
+  --grid: var(--md-outline-variant);
+  --axis: var(--md-outline);
+  --shadow-sm: var(--md-elev-1);
+  --shadow-md: var(--md-elev-2);
+  --shadow-lg: var(--md-elev-3);
+}
+
+/* ==========================================================================
+   Components, in the Material idiom
+   ========================================================================== */
+
+/* ---- Typography ---------------------------------------------------------
+   M3's type scale, applied to the headings the app already uses. */
+
+h1 { font-size: 28px; line-height: 1.2; font-weight: 640; letter-spacing: 0; }
+h2 { font-size: 20px; line-height: 1.3; font-weight: 620; letter-spacing: .0em; }
+h3 { font-size: 16px; line-height: 1.4; font-weight: 600; }
+
+/* ---- Buttons ------------------------------------------------------------
+   M3 has filled / tonal / outlined / text variants. The app's .btn maps to
+   outlined, .btn.primary to filled. Both get a state layer instead of a
+   background swap, and the full-pill shape M3 uses for buttons. */
+
+.btn {
+  position: relative; overflow: hidden;
+  border-radius: var(--md-shape-full);
+  border: 1px solid var(--md-outline);
+  background: transparent;
+  color: var(--md-primary);
+  font-weight: 560; letter-spacing: .01em;
+  padding: 9px 20px;
+  box-shadow: none;
+  transition: box-shadow var(--md-dur-short) var(--md-ease-standard),
+              border-color var(--md-dur-short) var(--md-ease-standard);
+}
+/* The state layer: a scrim of the foreground colour, at the spec opacities. */
+.btn::before {
+  content: ""; position: absolute; inset: 0;
+  background: currentColor; opacity: 0;
+  transition: opacity var(--md-dur-short) var(--md-ease-standard);
+  pointer-events: none;
+}
+.btn:hover:not(:disabled)::before  { opacity: var(--md-state-hover); }
+.btn:focus-visible::before         { opacity: var(--md-state-focus); }
+.btn:active:not(:disabled)::before { opacity: var(--md-state-press); }
+.btn:hover:not(:disabled) { background: transparent; }
+.btn:active:not(:disabled) { transform: none; }
+
+.btn.primary {
+  background: var(--md-primary);
+  border-color: transparent;
+  color: var(--md-on-primary);
+  box-shadow: var(--md-elev-0);
+}
+.btn.primary:hover:not(:disabled) {
+  background: var(--md-primary);
+  border-color: transparent;
+  box-shadow: var(--md-elev-1);
+  filter: none;
+}
+
+.btn.secondary {
+  background: var(--md-secondary-container);
+  border-color: transparent;
+  color: var(--md-on-secondary-container);
+}
+
+.btn.danger {
+  background: var(--md-error-container);
+  border-color: transparent;
+  color: var(--md-on-error-container);
+}
+
+.btn.sm { padding: 6px 14px; font-size: 12.5px; }
+.btn.ghost { border-color: transparent; }
+
+/* Icon buttons are circular in M3, with the same state layer. */
+.icon-btn {
+  position: relative; overflow: hidden;
+  border-radius: var(--md-shape-full);
+  color: var(--md-on-surface-variant);
+  border-color: transparent; background: transparent;
+}
+.icon-btn::before {
+  content: ""; position: absolute; inset: 0; background: currentColor;
+  opacity: 0; transition: opacity var(--md-dur-short) var(--md-ease-standard);
+  pointer-events: none;
+}
+.icon-btn:hover::before { opacity: var(--md-state-hover); }
+.icon-btn:active::before { opacity: var(--md-state-press); }
+
+/* ---- Cards --------------------------------------------------------------
+   M3 filled card: a tonal container, no border, elevation only on demand. */
+
+.card {
+  background: var(--md-surface-container-low);
+  border: 1px solid var(--md-outline-variant);
+  border-radius: var(--md-shape-md);
+  box-shadow: var(--md-elev-0);
+  transition: box-shadow var(--md-dur-medium) var(--md-ease-standard);
+}
+.card-head { border-bottom: 1px solid var(--md-outline-variant); }
+.card-foot { background: var(--md-surface-container); }
+
+/* ---- Stat tiles ---------------------------------------------------------
+   Elevated cards in M3 terms: a lighter tonal step, not a heavier shadow. */
+
+.stat {
+  background: var(--md-surface-container-low);
+  border: 1px solid var(--md-outline-variant);
+  border-radius: var(--md-shape-md);
+}
+.stat::after {
+  background: linear-gradient(90deg, var(--md-primary), transparent 78%);
+}
+
+/* ---- Navigation rail ----------------------------------------------------
+   M3 navigation rail: the active item sits in a full-pill secondary
+   container rather than being tinted text. */
+
+.sidebar { background: var(--md-surface-container-low); border-right-color: var(--md-outline-variant); }
+
+.side-nav a {
+  position: relative; overflow: hidden;
+  border-radius: var(--md-shape-full);
+  padding: 10px 16px;
+  color: var(--md-on-surface-variant);
+}
+.side-nav a::before {
+  content: ""; position: absolute; inset: 0; background: currentColor;
+  opacity: 0; transition: opacity var(--md-dur-short) var(--md-ease-standard);
+  pointer-events: none;
+}
+.side-nav a:hover::before { opacity: var(--md-state-hover); }
+.side-nav a:hover { background: transparent; }
+
+.side-nav a.active {
+  background: var(--md-secondary-container);
+  color: var(--md-on-secondary-container);
+  font-weight: 620;
+}
+/* The rail's active pill is the indicator; the left bar was a second one. */
+.side-nav a.active::after { display: none; }
+
+.side-brand { border-bottom-color: var(--md-outline-variant); }
+.side-foot  { border-top-color: var(--md-outline-variant); }
+
+/* ---- Top app bar --------------------------------------------------------
+   M3 small top app bar: flat, on the surface tone, no translucency. */
+
+.topbar {
+  background: var(--md-surface);
+  backdrop-filter: none;
+  border-bottom: 1px solid var(--md-outline-variant);
+}
+
+/* ---- Chips --------------------------------------------------------------
+   M3 chips are pill-shaped with an outline, and use a container fill when
+   selected. */
+
+.filter-chip {
+  border-radius: var(--md-shape-sm);
+  background: var(--md-secondary-container);
+  border-color: transparent;
+  color: var(--md-on-secondary-container);
+}
+.filter-chip.clear-all {
+  background: transparent; border: 1px solid var(--md-outline);
+  color: var(--md-on-surface-variant);
+}
+.tag { border-radius: var(--md-shape-xs); }
+
+/* ---- Dialogs ------------------------------------------------------------
+   M3 dialogs use the extra-large shape and sit on a high tonal container. */
+
+.ui-panel {
+  background: var(--md-surface-container-high);
+  border-color: transparent;
+  box-shadow: var(--md-elev-3);
+}
+.ui-overlay-modal .ui-panel { border-radius: var(--md-shape-xl); }
+.ui-panel-head { border-bottom-color: var(--md-outline-variant); }
+.ui-panel-foot { background: transparent; border-top-color: var(--md-outline-variant); }
+.ui-backdrop { background: color-mix(in srgb, var(--md-on-surface) 32%, transparent); }
+
+/* ---- Menus --------------------------------------------------------------  */
+
+.ui-menu {
+  background: var(--md-surface-container);
+  border: 1px solid var(--md-outline-variant);
+  border-radius: var(--md-shape-xs);
+  box-shadow: var(--md-elev-2);
+  padding: 8px 0;
+}
+.ui-menu-item {
+  position: relative; overflow: hidden;
+  border-radius: 0; padding: 10px 14px;
+  color: var(--md-on-surface);
+}
+.ui-menu-item::before {
+  content: ""; position: absolute; inset: 0; background: currentColor;
+  opacity: 0; transition: opacity var(--md-dur-short) var(--md-ease-standard);
+  pointer-events: none;
+}
+.ui-menu-item:hover:not(:disabled)::before,
+.ui-menu-item:focus-visible::before { opacity: var(--md-state-hover); }
+.ui-menu-item:hover:not(:disabled), .ui-menu-item:focus-visible { background: transparent; }
+.ui-menu-sep { background: var(--md-outline-variant); margin: 8px 0; }
+
+/* ---- Tabs ---------------------------------------------------------------
+   M3 tabs are a flat row with an underline indicator, not a segmented pill. */
+
+.ui-tablist {
+  background: transparent; border: 0;
+  border-bottom: 1px solid var(--md-outline-variant);
+  border-radius: 0; padding: 0; gap: 0;
+}
+.ui-tablist button {
+  position: relative; overflow: hidden;
+  border-radius: 0; padding: 13px 18px;
+  color: var(--md-on-surface-variant); font-weight: 560;
+}
+.ui-tablist button::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px;
+  border-radius: 3px 3px 0 0; background: var(--md-primary);
+  transform: scaleX(0); transition: transform var(--md-dur-medium) var(--md-ease-emphasised);
+}
+.ui-tablist button.active {
+  background: transparent; box-shadow: none; color: var(--md-primary);
+}
+.ui-tablist button.active::after { transform: scaleX(1); }
+
+/* ---- Accordion ---------------------------------------------------------- */
+
+.ui-accordion { border-color: var(--md-outline-variant); border-radius: var(--md-shape-md); }
+.ui-accordion-item { border-bottom-color: var(--md-outline-variant); }
+.ui-accordion-item > summary { background: var(--md-surface-container-low); }
+
+/* ---- Inputs -------------------------------------------------------------
+   M3 filled text field: a tonal container with a bottom rule that thickens
+   and takes the primary colour on focus. */
+
+input[type="text"], input[type="search"], input[type="number"], select, textarea {
+  background: var(--md-surface-container-highest);
+  border: 1px solid transparent;
+  border-bottom: 1px solid var(--md-on-surface-variant);
+  border-radius: var(--md-shape-xs) var(--md-shape-xs) 0 0;
+  color: var(--md-on-surface);
+  transition: border-color var(--md-dur-short) var(--md-ease-standard),
+              background var(--md-dur-short) var(--md-ease-standard);
+}
+:is(input[type="text"], input[type="search"], input[type="number"], select, textarea):hover {
+  background: var(--md-surface-container-high);
+}
+:is(input[type="text"], input[type="search"], input[type="number"], select, textarea):focus-visible {
+  outline: none;
+  border-bottom: 2px solid var(--md-primary);
+  box-shadow: none;
+}
+.field label {
+  color: var(--md-on-surface-variant); font-size: 12px; font-weight: 500;
+  letter-spacing: .01em;
+}
+
+/* ---- Alerts -------------------------------------------------------------
+   Mapped to the M3 error container role. */
+
+.alert {
+  border-radius: var(--md-shape-md);
+  border: 0; padding: 14px 18px;
+}
+.alert.critical {
+  border: 0; border-left: 4px solid var(--md-error);
+  background: var(--md-error-container);
+  color: var(--md-on-error-container);
+}
+.alert.critical strong,
+.alert.critical a { color: var(--md-on-error-container); }
+.alert.critical a { font-weight: 650; text-decoration: underline; }
+.alert.critical .ico { color: var(--md-error); }
+
+.alert.warn {
+  border: 0; border-left: 4px solid var(--md-tertiary);
+  background: var(--md-tertiary-container);
+  color: var(--md-on-surface);
+}
+.alert.info {
+  border: 0; border-left: 4px solid var(--md-primary);
+  background: var(--md-primary-container);
+  color: var(--md-on-primary-container);
+}
+.alert.info strong, .alert.info a { color: var(--md-on-primary-container); }
+
+/* ---- Tables ------------------------------------------------------------- */
+
+thead th { background: var(--md-surface-container); color: var(--md-on-surface-variant); }
+tbody td { border-bottom-color: var(--md-outline-variant); }
+tr.clickable { position: relative; }
+tr.clickable:hover { background: color-mix(in srgb, var(--md-on-surface) 6%, transparent); }
+
+/* ---- Toasts — M3 snackbar ----------------------------------------------- */
+
+.toast {
+  background: var(--md-surface-container-highest);
+  color: var(--md-on-surface);
+  border: 1px solid var(--md-outline-variant);
+  border-radius: var(--md-shape-xs);
+  box-shadow: var(--md-elev-3);
+}
+
+/* ---- Focus --------------------------------------------------------------
+   M3 focus is a 3px ring in the primary colour, offset from the component. */
+
+:is(.btn, .icon-btn, .side-nav a, .ui-menu-item, .filter-chip,
+    .ui-tablist button, a.card, tr.clickable):focus-visible {
+  outline: 3px solid var(--md-primary);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+/* ---- Motion -------------------------------------------------------------
+   Everything that already animates adopts the Material easing curve. */
+
+.card, .stat, .btn, .icon-btn, .side-nav a, .filter-chip, tbody tr {
+  transition-timing-function: var(--md-ease-standard);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-tablist button::after { transition: none; }
+}
