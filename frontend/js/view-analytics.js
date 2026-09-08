@@ -2,8 +2,8 @@
 
 import {
   $, api, meta, html, raw, currency, num, bandColor, damageChartRows,
-} from './core.js';
-import { hbar, line } from './charts.js';
+} from './core.js?v=25';
+import { hbar, line } from './charts.js?v=25';
 
 export async function analyticsView(mount) {
   const [a, m] = await Promise.all([api.analytics(), meta()]);
@@ -154,7 +154,8 @@ export async function analyticsView(mount) {
       color: 'var(--series-2)',
       points: trend.map((x) => ({ x: fmtMonth(x.month), y: x.avg_rpi })),
     },
-  ], { yMax: 100, format: (v) => num(v, 0), title: 'Network condition and priority over time' });
+  ], { yMax: 100, height: 200, format: (v) => num(v, 0),
+       title: 'Network condition and priority over time' });
 }
 
 function fmtMonth(ym) {

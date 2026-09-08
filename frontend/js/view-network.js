@@ -3,9 +3,11 @@
 import {
   $, $$, api, meta, html, raw, esc, currency, num, clamp, debounce,
   bandChip, bandColor, damageColor, damageChartRows, pciColor, relTime, dateStr,
-  emptyState, rpiMeter, icon, help, downloadCSV,
-} from './core.js';
-import { hbar, line, sparkline } from './charts.js';
+  emptyState, rpiMeter, icon, help, downloadCSV, toast, paintIcons,
+} from './core.js?v=25';
+import { hbar, line, sparkline } from './charts.js?v=25';
+import { menu, reveal } from '../ui/ui.js?v=25';
+import { peekSegment } from './segment-peek.js?v=25';
 
 /* ======================================================================
    Network register
@@ -13,9 +15,32 @@ import { hbar, line, sparkline } from './charts.js';
 
 const sortState = { key: 'rpi', dir: -1 };
 
+/* Sort presets for the "Sort by" control. The sortable column headers write
+   the same {key, dir} pair, so the two controls are two ways into one state
+   rather than two states that can disagree. */
+const SORTS = [
+  { id: 'rpi-desc',   label: 'Priority (high to low)',  key: 'rpi',            dir: -1 },
+  { id: 'rpi-asc',    label: 'Priority (low to high)',  key: 'rpi',            dir: 1 },
+  { id: 'pci-asc',    label: 'Condition (worst first)', key: 'pci',            dir: 1 },
+  { id: 'cost-desc',  label: 'Cost (high to low)',      key: 'total_cost',     dir: -1 },
+  { id: 'aadt-desc',  label: 'Traffic (busiest first)', key: 'aadt',           dir: -1 },
+  { id: 'name-asc',   label: 'Segment name (A–Z)',      key: 'name',           dir: 1 },
+];
+
+const PER_PAGE = [10, 25, 50, 0];   // 0 = all
+
 export async function networkView(mount) {
   const [m, data] = await Promise.all([meta(), api.segments()]);
   const wards = [...new Set(data.segments.map((s) => s.ward).filter(Boolean))].sort();
+  const bandCount = (code) => data.segments.filter((s) => s.band_code === code).length;
+
+  /* Paging is per visit, not per session: arriving at the register from a
+     search and landing on page 3 of the previous visit's filter is a puzzle,
+     not a convenience. */
+  let page = 1;
+  let perPage = 10;
+
+  const bandIcon = { P1: 'alert-triangle', P2: 'alert-circle', P3: 'info', P4: 'leaf' };
 
   mount.innerHTML = html`
     <div class="page-head">
@@ -28,15 +53,35 @@ export async function networkView(mount) {
         </p>
       </div>
       <div style="display:flex;gap:8px">
-        <button class="btn" id="export">${icon('download')} Export CSV</button>
+        <button class="btn" id="export" aria-haspopup="true" aria-expanded="false">
+          ${icon('download')} Export</button>
         <a class="btn primary" href="#/analyze">${icon('plus')} Add an inspection</a>
       </div>
     </div>
 
+    <div class="grid g-5" style="margin-bottom:16px">
+      <div class="stat mini">
+        <span class="stat-ico" style="color:var(--accent)">${icon('route')}</span>
+        <div class="stat-text">
+          <div class="value">${num(data.segments.length)}</div>
+          <div class="label">Total segments</div>
+        </div>
+      </div>
+      ${m.bands.map((b) => html`
+        <div class="stat mini">
+          <span class="stat-ico" style="color:${bandColor(b.code)}">${icon(bandIcon[b.code] || 'circle')}</span>
+          <div class="stat-text">
+            <div class="value" style="color:${bandColor(b.code)}">${num(bandCount(b.code))}</div>
+            <div class="label">${b.label} (${b.code})</div>
+          </div>
+        </div>`)}
+    </div>
+
     <div class="filters">
-      <div class="field grow">
-        <label for="q">Search</label>
-        <input type="search" id="q" placeholder="Segment or ward name…">
+      <div class="field grow search-field">
+        <label for="q" class="sr-only">Search segments</label>
+        <span class="sf-ico" aria-hidden="true">${icon('search')}</span>
+        <input type="search" id="q" placeholder="Search segment, ward or location…">
       </div>
       <div class="field">
         <label for="f-band">Priority</label>
@@ -63,17 +108,30 @@ export async function networkView(mount) {
       <button class="btn" id="reset">Reset</button>
     </div>
 
+    <div id="chips" class="filter-chips" hidden></div>
+
     <section class="card">
-      <div class="card-head">
+      <div class="card-head table-head">
         <h2 id="count">${num(data.segments.length)} segments</h2>
-        <span class="hint" id="sum"></span>
+        <div class="table-tools">
+          <span class="hint" id="sum"></span>
+          <label class="sort-by">
+            <span>Sort by</span>
+            <select id="f-sort">
+              ${SORTS.map((s) => html`<option value="${s.id}">${s.label}</option>`)}
+              <option value="custom" hidden>Custom (column)</option>
+            </select>
+          </label>
+        </div>
       </div>
       <div class="card-body flush">
         <div class="table-wrap">
-          <table>
+          <table class="register">
             <thead>
               <tr>
+                <th class="rank">#</th>
                 <th class="sortable" data-k="name">Segment</th>
+                <th class="sortable" data-k="ward">Location</th>
                 <th class="sortable" data-k="road_class">Class</th>
                 <th class="sortable" data-k="band_code">Priority</th>
                 <th class="sortable num" data-k="rpi">RPI</th>
@@ -82,21 +140,25 @@ export async function networkView(mount) {
                 <th class="sortable num" data-k="detection_count">Defects</th>
                 <th class="sortable" data-k="treatment_name">Recommended work</th>
                 <th class="sortable num" data-k="total_cost">Est. cost</th>
+                <th class="right">Action</th>
               </tr>
             </thead>
             <tbody id="rows"></tbody>
           </table>
         </div>
       </div>
+      <div class="card-foot pager" id="pager"></div>
     </section>`;
 
-  const apply = () => {
+  const apply = ({ resetPage = true } = {}) => {
+    if (resetPage) page = 1;
+
     const q = $('#q', mount).value.toLowerCase().trim();
     const band = $('#f-band', mount).value;
     const cls = $('#f-class', mount).value;
     const ward = $('#f-ward', mount).value;
 
-    let rows = data.segments.filter((s) => (
+    const rows = data.segments.filter((s) => (
       (!q || s.name.toLowerCase().includes(q) || (s.ward || '').toLowerCase().includes(q))
       && (!band || s.band_code === band)
       && (!cls || s.road_class === cls)
@@ -113,12 +175,21 @@ export async function networkView(mount) {
     });
 
     visible = rows;
-    renderRows(mount, rows);
+
+    // Page the sorted list, and pull a short page back into range when a
+    // filter shrinks the result set under the cursor.
+    const size = perPage || rows.length || 1;
+    const pages = Math.max(1, Math.ceil(rows.length / size));
+    if (page > pages) page = pages;
+    const from = (page - 1) * size;
+    const slice = rows.slice(from, from + size);
+
+    renderRows(mount, slice, from);
+    renderPager(mount, { total: rows.length, from, shown: slice.length, page, pages });
+
     $('#count', mount).textContent = `${num(rows.length)} segment${rows.length === 1 ? '' : 's'}`;
     const cost = rows.reduce((n, s) => n + (s.total_cost || 0), 0);
-    const crit = rows.filter((s) => s.band_code === 'P1').length;
-    $('#sum', mount).textContent =
-      `${currency(cost)} total · ${crit} critical`;
+    $('#sum', mount).textContent = `Total estimated cost: ${currency(cost)}`;
 
     $$('thead th.sortable', mount).forEach((th) => {
       const active = th.dataset.k === key;
@@ -127,13 +198,116 @@ export async function networkView(mount) {
         th.insertAdjacentHTML('beforeend', `<span class="arrow">${dir === 1 ? '▲' : '▼'}</span>`);
       }
     });
+
+    // Keep the Sort by control showing what the table is actually doing, even
+    // when the sort came from a column header with no preset of its own.
+    const preset = SORTS.find((s) => s.key === key && s.dir === dir);
+    $('#f-sort', mount).value = preset ? preset.id : 'custom';
+
+    renderChips({ q, band, cls, ward });
   };
 
-  // Export whatever is currently on screen — filters and sort included. An
-  // export that silently ignores the active filter is a reporting bug waiting
-  // to happen when someone pastes it into a works order.
+  /* ---- pagination ---- */
+
+  function renderPager(host, { total, from, shown, page: p, pages }) {
+    const pager = $('#pager', host);
+    if (!total) { pager.hidden = true; return; }
+    pager.hidden = false;
+
+    // A window of at most five page buttons, centred on the current page —
+    // twenty-eight segments is three pages, but the register grows.
+    const first = Math.max(1, Math.min(p - 2, pages - 4));
+    const nums = [];
+    for (let i = first; i <= Math.min(pages, first + 4); i += 1) nums.push(i);
+
+    pager.innerHTML = `
+      <span class="pager-count">
+        Showing ${num(from + 1)}–${num(from + shown)} of ${num(total)} segments
+      </span>
+      <div class="pager-controls">
+        <button class="page-btn" data-go="prev" ${p === 1 ? 'disabled' : ''}
+                aria-label="Previous page"><i data-lucide="chevron-left"></i></button>
+        ${nums.map((n) => `<button class="page-btn ${n === p ? 'active' : ''}"
+            data-go="${n}" ${n === p ? 'aria-current="page"' : ''}>${n}</button>`).join('')}
+        <button class="page-btn" data-go="next" ${p === pages ? 'disabled' : ''}
+                aria-label="Next page"><i data-lucide="chevron-right"></i></button>
+        <label class="per-page">
+          <span class="sr-only">Rows per page</span>
+          <select id="f-per">
+            ${PER_PAGE.map((n) => `<option value="${n}" ${n === perPage ? 'selected' : ''}>${
+              n ? `${n} / page` : 'All'}</option>`).join('')}
+          </select>
+        </label>
+      </div>`;
+
+    pager.querySelectorAll('.page-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const go = btn.dataset.go;
+        if (go === 'prev') page = Math.max(1, p - 1);
+        else if (go === 'next') page = Math.min(pages, p + 1);
+        else page = Number(go);
+        apply({ resetPage: false });
+        // The table header is the reference point after a page change; the top
+        // of the document would put the filters back under the cursor.
+        $('.register', host)?.scrollIntoView({ block: 'nearest' });
+      });
+    });
+    $('#f-per', pager).addEventListener('change', (e) => {
+      perPage = Number(e.target.value);
+      apply();
+    });
+    paintIcons(pager);
+  }
+
+  /* What is filtering the list, stated plainly. Without this the only clue is
+     a select somewhere above, which is easy to miss and easy to forget — and a
+     forgotten filter is what makes an exported works order wrong. */
+  const chipHost = $('#chips', mount);
+  function renderChips(f) {
+    const bandLabel = (code) => {
+      const b = m.bands.find((x) => x.code === code);
+      return b ? `${b.code} ${b.label}` : code;
+    };
+    const clsLabel = (code) => m.road_classes[code]?.name || code;
+
+    const active = [
+      f.q && { key: 'q', label: `“${f.q}”`, clear: () => { $('#q', mount).value = ''; } },
+      f.band && { key: 'band', label: bandLabel(f.band), clear: () => { $('#f-band', mount).value = ''; } },
+      f.cls && { key: 'cls', label: clsLabel(f.cls), clear: () => { $('#f-class', mount).value = ''; } },
+      f.ward && { key: 'ward', label: f.ward, clear: () => { $('#f-ward', mount).value = ''; } },
+    ].filter(Boolean);
+
+    chipHost.hidden = !active.length;
+    if (!active.length) { chipHost.innerHTML = ''; return; }
+
+    chipHost.innerHTML = active.map((a) => `
+      <button type="button" class="filter-chip" data-k="${esc(a.key)}">
+        <span>${esc(a.label)}</span>
+        <i data-lucide="x" aria-hidden="true"></i>
+        <span class="sr-only">Remove this filter</span>
+      </button>`).join('')
+      + `<button type="button" class="filter-chip clear-all" data-k="__all">Clear all</button>`;
+
+    chipHost.querySelectorAll('.filter-chip').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (btn.dataset.k === '__all') {
+          $('#q', mount).value = '';
+          ['#f-band', '#f-class', '#f-ward'].forEach((x) => { $(x, mount).value = ''; });
+        } else {
+          active.find((a) => a.key === btn.dataset.k)?.clear();
+        }
+        apply();
+      });
+    });
+    paintIcons(chipHost);
+  }
+
+  // Export whatever is currently on screen — filters and sort included, and
+  // every matching row rather than the visible page. An export that silently
+  // ignores the active filter is a reporting bug waiting to happen when
+  // someone pastes it into a works order.
   let visible = [];
-  $('#export', mount).addEventListener('click', () => {
+  const exportCSV = () => {
     downloadCSV(`roadlens-network-${new Date().toISOString().slice(0, 10)}.csv`, [
       { header: 'Segment', value: (r) => r.name },
       { header: 'Ward', value: (r) => r.ward || '' },
@@ -150,11 +324,41 @@ export async function networkView(mount) {
       { header: 'Design life (yr)', value: (r) => r.life_years || '' },
       { header: 'Last inspected', value: (r) => (r.inspected_at || '').slice(0, 10) },
     ], visible);
+  };
+
+  /* JSON keeps the full row as the API returned it — useful for anyone piping
+     the export into their own tooling rather than a spreadsheet. */
+  const exportJSON = () => {
+    const blob = new Blob([JSON.stringify(visible, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `roadlens-network-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.append(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    toast(`Exported ${visible.length} segments as JSON`, 'success');
+  };
+
+  $('#export', mount).addEventListener('click', (e) => {
+    e.stopPropagation();
+    menu(e.currentTarget, [
+      { label: `CSV — ${visible.length} rows`, icon: 'table', onClick: exportCSV },
+      { label: `JSON — ${visible.length} rows`, icon: 'braces', onClick: exportJSON },
+    ], { placement: 'bottom-end' });
   });
 
   $('#q', mount).addEventListener('input', debounce(apply, 160));
   ['#f-band', '#f-class', '#f-ward'].forEach((sel) =>
-    $(sel, mount).addEventListener('change', apply));
+    $(sel, mount).addEventListener('change', () => apply()));
+  $('#f-sort', mount).addEventListener('change', (e) => {
+    const s = SORTS.find((x) => x.id === e.target.value);
+    if (!s) return;
+    sortState.key = s.key;
+    sortState.dir = s.dir;
+    apply();
+  });
   $('#reset', mount).addEventListener('click', () => {
     $('#q', mount).value = '';
     ['#f-band', '#f-class', '#f-ward'].forEach((s) => { $(s, mount).value = ''; });
@@ -164,7 +368,7 @@ export async function networkView(mount) {
     th.addEventListener('click', () => {
       const k = th.dataset.k;
       if (sortState.key === k) sortState.dir *= -1;
-      else { sortState.key = k; sortState.dir = (k === 'name' || k === 'treatment_name') ? 1 : -1; }
+      else { sortState.key = k; sortState.dir = (k === 'name' || k === 'ward' || k === 'treatment_name') ? 1 : -1; }
       apply();
     });
   });
@@ -172,22 +376,24 @@ export async function networkView(mount) {
   apply();
 }
 
-function renderRows(mount, rows) {
+function renderRows(mount, rows, offset = 0) {
   const tbody = $('#rows', mount);
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="9">${emptyState(
+    tbody.innerHTML = `<tr><td colspan="12">${emptyState(
       'Nothing matches', 'Try clearing a filter.', '🔍')}</td></tr>`;
     return;
   }
-  tbody.innerHTML = rows.map((s) => html`
+  tbody.innerHTML = rows.map((s, i) => html`
     <tr class="clickable" data-id="${s.id}">
+      <td class="rank"><span class="rank-n">${offset + i + 1}</span></td>
       <td>
         <div class="cell-title">${s.name}</div>
-        <div class="cell-sub">${s.ward || '—'}
+        <div class="cell-sub">
+          ${s.inspected_at ? `Updated: ${relTime(s.inspected_at)}` : 'Not yet inspected'}
           ${s.is_emergency_route ? ' · emergency route' : ''}
-          ${s.has_school_zone ? ' · school zone' : ''}
-          ${s.inspected_at ? ` · ${relTime(s.inspected_at)}` : ''}</div>
+          ${s.has_school_zone ? ' · school zone' : ''}</div>
       </td>
+      <td class="cell-sub">${s.ward || '—'}</td>
       <td><span class="tag">${s.road_class}</span></td>
       <td>${s.band_code ? bandChip(s.band_code, s.band_label, true) : raw('<span class="muted">—</span>')}</td>
       <td class="num">${raw(rpiMeter(s.rpi, s.band_code))}</td>
@@ -201,11 +407,52 @@ function renderRows(mount, rows) {
       <td class="num">${num(s.detection_count)}</td>
       <td>${s.treatment_name || raw('<span class="muted">—</span>')}</td>
       <td class="num">${s.total_cost ? currency(s.total_cost) : '—'}</td>
+      <td class="right actions">
+        <a class="btn sm view-btn" href="#/segment/${encodeURIComponent(s.id)}">
+          View ${raw('<i data-lucide="arrow-right" aria-hidden="true"></i>')}</a>
+        <button type="button" class="icon-btn row-menu" data-id="${s.id}"
+                aria-haspopup="true" aria-label="More actions for ${s.name}">
+          ${icon('more-vertical')}</button>
+      </td>
     </tr>`).join('');
 
   tbody.querySelectorAll('tr[data-id]').forEach((tr) => {
-    tr.addEventListener('click', () => { location.hash = `#/segment/${tr.dataset.id}`; });
+    tr.addEventListener('click', (e) => {
+      // The row opens the quick look; the cell's own controls speak for
+      // themselves, so they must not also fire the row's handler.
+      if (e.target.closest('.actions')) return;
+      if (e.metaKey || e.ctrlKey) { location.hash = `#/segment/${tr.dataset.id}`; return; }
+      peekSegment(tr.dataset.id);
+    });
   });
+
+  tbody.querySelectorAll('.row-menu').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.id;
+      menu(btn, [
+        { label: 'Open full report', icon: 'external-link',
+          onClick: () => { location.hash = `#/segment/${encodeURIComponent(id)}`; } },
+        { label: 'Quick look', icon: 'eye', onClick: () => peekSegment(id) },
+        { separator: true },
+        { label: 'Copy link', icon: 'copy',
+          onClick: async () => {
+            const url = `${location.origin}${location.pathname}#/segment/${encodeURIComponent(id)}`;
+            try {
+              await navigator.clipboard.writeText(url);
+              toast('Link copied', 'success');
+            } catch {
+              // Clipboard access needs a secure context, which a plain-http
+              // LAN install does not have. Say so rather than failing mutely.
+              toast('Could not copy — the clipboard needs HTTPS.', 'warn');
+            }
+          } },
+      ], { placement: 'bottom-end' });
+    });
+  });
+
+  paintIcons(tbody);
+  reveal(tbody, 'tr', { delay: 0.012, duration: 0.26 });
 }
 
 /* ======================================================================

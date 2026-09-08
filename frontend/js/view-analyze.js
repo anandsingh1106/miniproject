@@ -4,7 +4,7 @@ import {
   $, $$, api, meta, html, raw, esc, currency, num, clamp,
   bandChip, bandColor, damageColor, errorState, debounce,
   icon, paintIcons, help, wireHelp, toast,
-} from './core.js';
+} from './core.js?v=25';
 
 const CONTEXT_FIELDS = [
   'road_class', 'aadt', 'commercial_pct', 'length_m', 'surface_type',
@@ -19,6 +19,12 @@ export async function analyzeView(mount) {
   state = { file: null, result: null, selected: null };
 
   mount.innerHTML = html`
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <a href="#/">Dashboard</a>
+      <span aria-hidden="true">›</span>
+      <span aria-current="page">Analyse a road image</span>
+    </nav>
+
     <div class="page-head">
       <div>
         <h1>Analyse a road image</h1>
@@ -29,31 +35,36 @@ export async function analyzeView(mount) {
           outrank moderate damage on an ambulance route.
         </p>
       </div>
+      <a class="btn" href="#/method">${icon('play-circle')} View how it works</a>
     </div>
 
-    <div class="grid g-side">
+    <div class="grid g-analyse">
       <div>
         <section class="card" style="margin-bottom:16px">
-          <div class="card-head"><h2>1 · Road image</h2></div>
+          <div class="card-head">
+            <div>
+              <h2>1. Upload road image</h2>
+              <p class="card-sub">A single photograph of the road surface</p>
+            </div>
+          </div>
           <div class="card-body">
             <div class="dropzone" id="drop" role="button" tabindex="0"
                  aria-label="Choose or drop a road image">
-              ${icon('image-up')}
-              <div class="big">Drop a photo, or click to choose</div>
-              <div class="small">JPEG, PNG or WebP · up to 12 MB</div>
+              <span class="dz-ico">${icon('image-up')}</span>
+              <div class="big">Drag &amp; drop a road image here</div>
+              <div class="small">or click to browse</div>
+              <div class="tiny">JPG, PNG or WebP · up to 12 MB</div>
             </div>
             <input type="file" id="file" accept="image/*" class="sr-only">
             <div id="preview" style="margin-top:12px"></div>
 
-            <div style="margin-top:16px">
-              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px">
-                <span style="font-size:12.5px;font-weight:600;color:var(--text-secondary)">
-                  Or try a sample
-                </span>
+            <div id="samples-block" style="margin-top:18px">
+              <div class="samples-head">
+                <span class="samples-label">Or try a sample image</span>
                 <span class="muted" style="font-size:11px">Synthetic</span>
               </div>
               <div class="samples" id="samples"></div>
-              <div class="help" style="margin-top:7px">
+              <div class="help" style="margin-top:8px">
                 Generated road surfaces, not photographs — they demonstrate the pipeline
                 end to end without you needing to find an image first.
               </div>
@@ -63,16 +74,18 @@ export async function analyzeView(mount) {
 
         <section class="card">
           <div class="card-head">
-            <h2>2 · Segment context</h2>
+            <div>
+              <h2>2. Segment context</h2>
+              <p class="card-sub">Basic information about the road, to improve accuracy</p>
+            </div>
             <span class="hint">Drives 60% of the score</span>
           </div>
           <div class="card-body">
-            <div class="field">
-              <label for="f-name">Segment name</label>
-              <input type="text" id="f-name" placeholder="e.g. Karve Road, Kothrud">
-            </div>
-
-            <div class="grid g-2" style="gap:12px">
+            <div class="grid g-3" style="gap:12px">
+              <div class="field">
+                <label for="f-name">Segment name</label>
+                <input type="text" id="f-name" placeholder="e.g. Karve Road, Kothrud">
+              </div>
               <div class="field">
                 <label for="f-road_class">Road class</label>
                 <select id="f-road_class">
@@ -81,7 +94,7 @@ export async function analyzeView(mount) {
                 </select>
               </div>
               <div class="field">
-                <label for="f-surface_type">Surface</label>
+                <label for="f-surface_type">Surface type</label>
                 <select id="f-surface_type">
                   ${Object.entries(m.surface_types).map(([k, v]) => html`
                     <option value="${k}">${v}</option>`)}
@@ -89,7 +102,7 @@ export async function analyzeView(mount) {
               </div>
             </div>
 
-            <div class="grid g-2" style="gap:12px">
+            <div class="grid g-3" style="gap:12px">
               <div class="field">
                 <label for="f-aadt">Traffic (AADT)${help('AADT')}</label>
                 <input type="number" id="f-aadt" value="8000" min="0" step="500">
@@ -100,22 +113,20 @@ export async function analyzeView(mount) {
                 <input type="number" id="f-commercial_pct" value="12" min="0" max="100" step="1">
                 <div class="help">Trucks and buses do the damage</div>
               </div>
-            </div>
-
-            <div class="grid g-2" style="gap:12px">
               <div class="field">
                 <label for="f-length_m">Length (m)</label>
                 <input type="number" id="f-length_m" value="500" min="10" step="50">
+                <div class="help">Of the stretch being scored</div>
               </div>
+            </div>
+
+            <div class="grid g-3" style="gap:12px">
               <div class="field">
                 <label for="f-last_resurfaced_years">Years since resurfacing</label>
                 <input type="number" id="f-last_resurfaced_years" value="6" min="0" step="0.5">
               </div>
-            </div>
-
-            <div class="grid g-2" style="gap:12px">
               <div class="field">
-                <label for="f-drainage_quality">Drainage</label>
+                <label for="f-drainage_quality">Drainage condition</label>
                 <select id="f-drainage_quality">
                   <option value="good">Good</option>
                   <option value="fair" selected>Fair</option>
@@ -132,42 +143,59 @@ export async function analyzeView(mount) {
               </div>
             </div>
 
-            <div class="grid g-2" style="gap:12px">
-              <div class="field">
-                <label for="f-accidents_3yr">Crashes (3 yr)</label>
-                <input type="number" id="f-accidents_3yr" value="0" min="0" step="1">
-              </div>
-              <div class="field">
-                <label for="f-public_reports">Citizen complaints</label>
-                <input type="number" id="f-public_reports" value="0" min="0" step="1">
-              </div>
+            <div class="check-pair">
+              <label class="check">
+                <input type="checkbox" id="f-is_emergency_route">
+                <span>
+                  Emergency route
+                  <span class="c-sub">Hospital, fire or disaster corridor</span>
+                </span>
+              </label>
+              <label class="check">
+                <input type="checkbox" id="f-has_school_zone">
+                <span>
+                  School zone
+                  <span class="c-sub">Near a school or educational area</span>
+                </span>
+              </label>
             </div>
 
-            <label class="check">
-              <input type="checkbox" id="f-is_emergency_route">
-              <span>Emergency route <span class="muted">— hospital, fire or disaster corridor</span></span>
-            </label>
-            <label class="check">
-              <input type="checkbox" id="f-has_school_zone">
-              <span>School zone</span>
-            </label>
+            <!-- Everything below is either rarely known at inspection time or a
+                 detector setting rather than a property of the road. Collapsed
+                 so the form asks for the nine fields that matter first, without
+                 taking the other four away. -->
+            <details class="more-fields">
+              <summary>${icon('sliders-horizontal')} Advanced — safety history and detector settings</summary>
+              <div class="more-body">
+                <div class="grid g-2" style="gap:12px">
+                  <div class="field">
+                    <label for="f-accidents_3yr">Crashes (3 yr)</label>
+                    <input type="number" id="f-accidents_3yr" value="0" min="0" step="1">
+                  </div>
+                  <div class="field">
+                    <label for="f-public_reports">Citizen complaints</label>
+                    <input type="number" id="f-public_reports" value="0" min="0" step="1">
+                  </div>
+                </div>
 
-            <hr class="divider">
+                <div class="field">
+                  <label for="f-conf">Detection confidence threshold
+                    <span class="mono" id="conf-val">0.25</span></label>
+                  <input type="range" id="f-conf" min="0.05" max="0.8" step="0.05" value="0.25">
+                  <div class="help">Lower catches more, and reports more false positives.</div>
+                </div>
 
-            <div class="field">
-              <label for="f-conf">Detection confidence threshold
-                <span class="mono" id="conf-val">0.25</span></label>
-              <input type="range" id="f-conf" min="0.05" max="0.8" step="0.05" value="0.25">
-              <div class="help">Lower catches more, and reports more false positives.</div>
-            </div>
+                <label class="check">
+                  <input type="checkbox" id="f-save" checked>
+                  <span>Save to the network register</span>
+                </label>
+              </div>
+            </details>
 
-            <label class="check">
-              <input type="checkbox" id="f-save" checked>
-              <span>Save to the network register</span>
-            </label>
-
-            <button class="btn primary" id="run" style="width:100%;margin-top:8px" disabled>
-              Detect and score
+            <button class="btn primary cta" id="run" disabled>
+              ${icon('activity')}
+              <span>Detect and score</span>
+              ${icon('chevron-right')}
             </button>
           </div>
         </section>
@@ -197,7 +225,7 @@ async function loadSamples(mount) {
   try {
     manifest = await (await fetch('samples/manifest.json')).json();
   } catch {
-    host.closest('div[style]')?.remove();      // no samples bundled — hide the block
+    document.getElementById('samples-block')?.remove();   // none bundled — hide the block
     return;
   }
 
@@ -229,13 +257,44 @@ async function loadSamples(mount) {
   });
 }
 
+/* The right-hand column before anything has been run. It is the only thing on
+   screen at that moment, so it explains what pressing the button will produce
+   rather than just saying that nothing has happened yet. */
 function placeholder() {
-  return html`<div class="empty">
-    ${icon('scan-search')}
+  return html`<div class="analyse-empty">
+    <div class="ae-frame" aria-hidden="true">${icon('image')}</div>
     <h3>No analysis yet</h3>
-    <p style="margin:0;max-width:38ch;margin-inline:auto">
-      Choose a road photograph and set the segment context, then run the detector.
+    <p>
+      Upload a road image and set the segment context to see detection results,
+      condition score and recommendations.
     </p>
+
+    <div class="feature-row">
+      <div class="feature">
+        <span class="f-ico" style="color:var(--accent)">${icon('search')}</span>
+        <div class="f-title">Detect distresses</div>
+        <div class="f-sub">Potholes, cracks, ravelling and more</div>
+      </div>
+      <div class="feature">
+        <span class="f-ico" style="color:var(--md-tertiary)">${icon('bar-chart-3')}</span>
+        <div class="f-title">Estimate condition</div>
+        <div class="f-sub">PCI, RPI and priority band</div>
+      </div>
+      <div class="feature">
+        <span class="f-ico" style="color:var(--md-secondary)">${icon('file-text')}</span>
+        <div class="f-title">Get recommendations</div>
+        <div class="f-sub">Suggested treatment and cost estimate</div>
+      </div>
+    </div>
+
+    <div class="alert info" style="margin:0;text-align:left">
+      <span class="ico">${icon('info')}</span>
+      <div>
+        <strong>Good image tips:</strong>
+        use a clear, well-lit photograph of the road surface. Keep the camera facing
+        forward along the lane and avoid heavy motion blur.
+      </div>
+    </div>
   </div>`;
 }
 

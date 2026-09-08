@@ -51,6 +51,54 @@ pytest                       # 143 tests
 python scripts/smoke_check.py   # assert a running deployment is actually useful
 ```
 
+### Changing the interface
+
+Clicking a row in the dashboard queue or the network register opens a
+quick-look drawer (`js/segment-peek.js`) rather than navigating away, so the
+filters, sort and scroll position survive. Ctrl/Cmd-click still goes straight
+to the full report.
+
+The design system lives in `frontend/ui/` — components, theme presets and
+motion helpers, all domain-agnostic. It is demonstrated live at `#/components`,
+where each demo shows the code that produces it. See `frontend/ui/README.md`.
+
+```js
+import { modal, confirm, menu, tabs, accordion, reveal } from '../ui/ui.js';
+```
+
+The look is driven entirely by CSS custom properties. To restyle the app, edit
+or add a preset in `frontend/ui/themes.css` — component rules never need to
+change. Presets can be tried without editing code:
+
+```js
+RoadLensTheme.set('slate');        // default | slate | forest | contrast
+RoadLensTheme.density('compact');  // comfortable | compact
+```
+
+The status palette, categorical series slots and the sequential ramp are
+deliberately left alone by presets: they encode what a chart means, not how it
+looks.
+
+### Cache busting
+
+The dev server sends `ETag`/`Last-Modified` but no `Cache-Control`, so a
+browser may reuse a cached stylesheet or module and show a stale UI after a
+change. Two things prevent that: `index.html` carries a `no-cache` meta so the
+entry document is always revalidated, and every one of the app's own CSS and JS
+URLs carries a `?v=N` stamp — including the relative `import` specifiers inside
+the modules, since a stamped entry alone would still pull unstamped children
+from cache.
+
+**After changing frontend CSS or JS, bump the stamp everywhere:**
+
+```bash
+# 13 -> 14, in index.html and in every module import
+grep -rl '?v=13' frontend/ | xargs sed -i 's/?v=13/?v=14/g'
+```
+
+Vendored files are deliberately unstamped: they are version-pinned in
+`package.json` already, and should stay cached.
+
 ### Updating frontend assets
 
 `frontend/vendor/` is committed, so npm is only needed to change a dependency:
@@ -187,7 +235,10 @@ backend/
   db.py  main.py  seed.py
 frontend/              vanilla ES modules, no build step
   js/charts.js         hand-rolled SVG charts
-  vendor/              Leaflet, Lucide, Inter — vendored from npm, committed
+  css/material.css     Material 3 role tokens + component idiom
+  css/shell.css        sidebar shell layout, layered last
+  ui/                  design system — components, presets, motion (see ui/README.md)
+  vendor/              Leaflet, Lucide, Floating UI, Motion, Inter — vendored from npm, committed
   samples/             generated demo road imagery
 training/              RDD2022 → YOLO pipeline + evaluation
 tests/                 143 tests over scoring, costing, detection and the API
