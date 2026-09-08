@@ -30,6 +30,19 @@ const COPY = [
   // Lucide — icon set
   ['lucide/dist/umd/lucide.min.js', 'lucide/lucide.min.js'],
 
+  // Floating UI — anchor positioning for tooltips and popovers. UMD builds,
+  // because there is no bundler here to resolve the bare specifier that the
+  // ESM build imports. Core must load before dom: dom reads it as a global.
+  ['@floating-ui/core/dist/floating-ui.core.umd.min.js',
+   'floating-ui/floating-ui.core.umd.min.js'],
+  ['@floating-ui/dom/dist/floating-ui.dom.umd.min.js',
+   'floating-ui/floating-ui.dom.umd.min.js'],
+
+  // Motion — animation engine (UMD, standalone, exposes window.Motion).
+  // Drives the reveal/stagger helpers in js/ui.js and respects
+  // prefers-reduced-motion at the call site.
+  ['motion/dist/motion.js', 'motion/motion.js'],
+
   // Inter — variable font, self-hosted (no Google Fonts call)
   ['@fontsource-variable/inter/files/inter-latin-wght-normal.woff2',
    'inter/inter-latin-wght-normal.woff2'],
