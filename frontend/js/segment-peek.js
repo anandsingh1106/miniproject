@@ -9,8 +9,8 @@
 import {
   api, html, raw, esc, num, currency, relTime, bandChip, bandColor,
   rpiMeter, pciColor, icon, paintIcons, meta,
-} from './core.js?v=25';
-import { drawer, animate } from '../ui/ui.js?v=25';
+} from './core.js?v=26';
+import { drawer, animate } from '../ui/ui.js?v=26';
 
 /** Cache: reopening the same segment in one session should feel instant. */
 const cache = new Map();

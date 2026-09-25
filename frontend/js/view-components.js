@@ -5,11 +5,11 @@
  * gallery shows the change immediately. Linked from the Method page.
  */
 
-import { html, raw, esc, $, toast } from './core.js?v=25';
+import { html, raw, esc, $, toast } from './core.js?v=26';
 import {
   modal, drawer, confirm, tabs, accordion, menu, reveal, countUp, animate, reducedMotion,
-} from '../ui/ui.js?v=25';
-import { PRESETS, DENSITIES, setPreset, setDensity, getPreset, getDensity } from '../ui/theme.js?v=25';
+} from '../ui/ui.js?v=26';
+import { PRESETS, DENSITIES, setPreset, setDensity, getPreset, getDensity } from '../ui/theme.js?v=26';
 
 /** A code sample shown under each demo. */
 const code = (src) => html`<pre class="ui-code"><code>${src.trim()}</code></pre>`;
@@ -49,7 +49,7 @@ export async function componentsView(mount) {
             </select>
           </div>
         </div>
-        ${code(`import { setPreset, setDensity } from '../ui/theme.js?v=25';
+        ${code(`import { setPreset, setDensity } from '../ui/theme.js?v=26';
 setPreset('slate');        // default | slate | forest | contrast
 setDensity('compact');     // comfortable | compact
 
@@ -71,7 +71,7 @@ RoadLensTheme.set('forest');`)}
           Focus is trapped while open and restored on close; Escape and the backdrop
           both dismiss. An action returning <code>false</code> keeps the dialog open.
         </p>
-        ${code(`import { modal, confirm } from '../ui/ui.js?v=25';
+        ${code(`import { modal, confirm } from '../ui/ui.js?v=26';
 
 const m = modal({
   title: 'Edit segment',
@@ -102,7 +102,7 @@ if (await confirm({ title: 'Delete segment?', danger: true })) …`)}
           Anchored with Floating UI, so it flips and shifts to stay on screen even
           inside a scrolling card. Arrow keys move, Escape closes.
         </p>
-        ${code(`import { menu } from '../ui/ui.js?v=25';
+        ${code(`import { menu } from '../ui/ui.js?v=26';
 
 menu(button, [
   { label: 'Export CSV', icon: 'download', hint: '⌘E', onClick: exportCsv },
@@ -191,7 +191,7 @@ tabs(root, { onChange: (key) => … });`)}
             ${raw('<div class="ui-demo-box"></div>'.repeat(5))}
           </div>
         </div>
-        ${code(`import { countUp, reveal, animate } from '../ui/ui.js?v=25';
+        ${code(`import { countUp, reveal, animate } from '../ui/ui.js?v=26';
 
 countUp($('#total'), 1284);                    // animated number
 reveal(view, '.card');                         // staggered entrance

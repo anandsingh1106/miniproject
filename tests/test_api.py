@@ -157,6 +157,59 @@ class TestAnalyze:
                         data={"save": "true"}).json()
         assert client.get(r["image_url"]).status_code == 200
 
+    def test_preview_does_not_touch_the_register(self, client):
+        before = client.get("/api/health").json()["inspections"]
+        client.post("/api/analyze",
+                    files={"image": ("road.jpg", road_image(), "image/jpeg")},
+                    data={"segment_name": "Preview Only Road", "save": "false"})
+        assert client.get("/api/health").json()["inspections"] == before
+        assert client.get("/api/segments/SEG-PREVIEW-ONLY-ROAD").status_code == 404
+
+    def test_saving_a_preview_pins_it_on_the_map(self, client):
+        prev = client.post("/api/analyze",
+                           files={"image": ("road.jpg", road_image(), "image/jpeg")},
+                           data={"road_class": "NH", "save": "false"}).json()
+        r = client.post(f"/api/analyze/{prev['id']}/save",
+                        json={"segment_name": "Saved Later Road", "ward": "Rohini",
+                              "lat": 28.7041, "lon": 77.1025})
+        assert r.status_code == 200
+        body = r.json()
+        assert body["saved"] and body["segment_id"] == "SEG-SAVED-LATER-ROAD"
+        assert body["scoring"]["rpi"] == pytest.approx(prev["scoring"]["rpi"])
+        assert client.get(body["image_url"]).status_code == 200
+
+        seg = next(s for s in client.get("/api/segments").json()["segments"]
+                   if s["id"] == body["segment_id"])
+        assert (seg["lat"], seg["lon"]) == (28.7041, 77.1025)
+        assert seg["ward"] == "Rohini" and seg["road_class"] == "NH"
+        assert seg["inspection_id"] == prev["id"]
+
+    def test_a_preview_saves_only_once(self, client):
+        prev = client.post("/api/analyze",
+                           files={"image": ("road.jpg", road_image(), "image/jpeg")},
+                           data={"save": "false"}).json()
+        payload = {"segment_name": "Once Only Road", "lat": 28.6, "lon": 77.2}
+        assert client.post(f"/api/analyze/{prev['id']}/save", json=payload).status_code == 200
+        assert client.post(f"/api/analyze/{prev['id']}/save", json=payload).status_code == 404
+
+    def test_saving_needs_a_name_and_a_location(self, client):
+        prev = client.post("/api/analyze",
+                           files={"image": ("road.jpg", road_image(), "image/jpeg")},
+                           data={"save": "false"}).json()
+        url = f"/api/analyze/{prev['id']}/save"
+        assert client.post(url, json={"lat": 28.6, "lon": 77.2}).status_code == 400
+        assert client.post(url, json={"segment_name": "No Pin Road"}).status_code == 400
+        assert client.post(url, json={"segment_name": "Bad Pin Road",
+                                      "lat": 200, "lon": 77.2}).status_code == 400
+
+    def test_saving_an_unknown_analysis_is_404(self, client):
+        for bad in ("00000000-0000-0000-0000-000000000000", "not-an-id", "..%2F..%2Fsecret"):
+            r = client.post(f"/api/analyze/{bad}/save",
+                            json={"segment_name": "X", "lat": 1, "lon": 1})
+            # A traversal attempt may not even reach the route (405 from the
+            # static mount); what matters is that nothing is saved.
+            assert r.status_code in (404, 405)
+
     def test_rejects_a_non_image(self, client):
         r = client.post("/api/analyze",
                         files={"image": ("notes.txt", b"this is not an image", "text/plain")},

@@ -1,6 +1,6 @@
 /* Method — how the score is built, and what it cannot tell you. */
 
-import { meta, html, raw, num, bandColor, damageColor, GLOSSARY, icon } from './core.js?v=25';
+import { meta, html, raw, num, bandColor, damageColor, GLOSSARY, icon } from './core.js?v=26';
 
 export async function methodView(mount) {
   const m = await meta();

@@ -8,9 +8,9 @@
 
 import {
   $, $$, api, html, num, currency, bandColor, meta, icon, emptyState,
-} from './core.js?v=25';
-import { renderMap } from './map.js?v=25';
-import { peekSegment } from './segment-peek.js?v=25';
+} from './core.js?v=26';
+import { renderMap } from './map.js?v=26';
+import { peekSegment } from './segment-peek.js?v=26';
 
 export async function mapView(mount) {
   const [segs, m] = await Promise.all([api.segments(), meta()]);
@@ -60,12 +60,14 @@ export async function mapView(mount) {
     </div>`;
 
   let band = '';
+  // #/map?focus=SEG-… — set by "View on map" after saving an analysis.
+  const focus = new URLSearchParams(location.hash.split('?')[1] || '').get('focus');
 
   const shown = () => (band ? all.filter((s) => s.band_code === band) : all);
 
   const draw = () => {
     const rows = shown();
-    renderMap($('#map', mount), rows);
+    renderMap($('#map', mount), rows, focus);
     $('#map-count', mount).textContent = `${num(rows.length)} shown`;
 
     const list = $('#map-list', mount);

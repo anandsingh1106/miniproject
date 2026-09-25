@@ -4,7 +4,7 @@ import {
   $, $$, api, meta, html, raw, esc, currency, num, clamp,
   bandChip, bandColor, damageColor, errorState, debounce,
   icon, paintIcons, help, wireHelp, toast,
-} from './core.js?v=25';
+} from './core.js?v=26';
 
 const CONTEXT_FIELDS = [
   'road_class', 'aadt', 'commercial_pct', 'length_m', 'surface_type',
@@ -12,11 +12,11 @@ const CONTEXT_FIELDS = [
   'is_emergency_route', 'has_school_zone', 'public_reports',
 ];
 
-let state = { file: null, result: null, selected: null };
+let state = { file: null, preview: null, result: null, selected: null };
 
 export async function analyzeView(mount) {
   const m = await meta();
-  state = { file: null, result: null, selected: null };
+  state = { file: null, preview: null, result: null, selected: null };
 
   mount.innerHTML = html`
     <nav class="breadcrumb" aria-label="Breadcrumb">
@@ -185,10 +185,6 @@ export async function analyzeView(mount) {
                   <div class="help">Lower catches more, and reports more false positives.</div>
                 </div>
 
-                <label class="check">
-                  <input type="checkbox" id="f-save" checked>
-                  <span>Save to the network register</span>
-                </label>
               </div>
             </details>
 
@@ -334,7 +330,9 @@ function accept(file, mount) {
     return;
   }
   state.file = file;
+  if (state.preview) URL.revokeObjectURL(state.preview);
   const url = URL.createObjectURL(file);
+  state.preview = url;
   $('#preview', mount).innerHTML = html`
     <div style="display:flex;gap:11px;align-items:center;padding:9px;background:var(--surface-2);border-radius:var(--radius-sm)">
       <img src="${url}" alt="" style="width:56px;height:44px;object-fit:cover;border-radius:4px;flex:none">
@@ -364,7 +362,8 @@ async function run(mount, m) {
     fd.append(f, node.type === 'checkbox' ? node.checked : node.value);
   });
   fd.append('conf_threshold', $('#f-conf', mount).value);
-  fd.append('save', $('#f-save', mount).checked);
+  // Always a preview first — nothing reaches the register until Save is pressed.
+  fd.append('save', false);
 
   const name = $('#f-name', mount).value.trim();
   if (name) {
@@ -412,7 +411,7 @@ function renderResults(mount, r, m, formRoot) {
       </div>
       <div class="card-body tight">
         <div class="viewer" id="viewer">
-          <img src="${r.image_url || ''}" alt="Analysed road surface" id="shot">
+          <img src="${r.image_url || state.preview || ''}" alt="Analysed road surface" id="shot">
           <svg viewBox="0 0 100 100" preserveAspectRatio="none" id="boxes" aria-hidden="true"></svg>
         </div>
       </div>
@@ -504,13 +503,11 @@ function renderResults(mount, r, m, formRoot) {
         </dl>
         ${t.reasoning ? html`<p class="muted" style="font-size:12px;margin:12px 0 0">${t.reasoning}</p>` : ''}
       </div>
-      ${r.saved ? html`
-        <div class="card-foot">
-          Saved to the register.
-          ${r.segment_id ? html`<a href="#/segment/${r.segment_id}">Open the segment record →</a>`
-                         : html`<a href="#/network">View the network →</a>`}
-        </div>` : ''}
-    </section>`;
+    </section>
+
+    <section class="card save-card" id="save-card" style="margin-top:16px"></section>`;
+
+  renderSaveCard($('#save-card', mount), r, formRoot);
 
   drawBoxes(mount, dets);
   drawList(mount, dets, m);
@@ -582,4 +579,178 @@ function drawList(mount, dets, m) {
     row.addEventListener('mouseenter', on);
     row.addEventListener('mouseleave', off);
   });
+}
+
+/* ---------- save to the register ---------- */
+
+// Where the picker opens when there is nothing better to go on: the demo
+// network's city. Overridden by the network's own centre once it is loaded.
+const DEFAULT_CENTRE = [28.6139, 77.2090];
+
+let pickerMap = null;
+
+function renderSaveCard(card, r, formRoot) {
+  const name = $('#f-name', formRoot)?.value.trim() || '';
+
+  card.innerHTML = html`
+    <div class="card-head">
+      <div>
+        <h2>Save to database</h2>
+        <p class="card-sub">Store this inspection and pin it on the network map</p>
+      </div>
+      <span class="tag">Not saved yet</span>
+    </div>
+    <div class="card-body">
+      <div class="grid g-2" style="gap:12px">
+        <div class="field">
+          <label for="s-name">Segment name</label>
+          <input type="text" id="s-name" value="${name}" placeholder="e.g. Karve Road, Kothrud" required>
+          <div class="help">Saving again under the same name adds to that road's history</div>
+        </div>
+        <div class="field">
+          <label for="s-ward">Ward / locality</label>
+          <input type="text" id="s-ward" placeholder="optional">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Location</label>
+        <div id="s-map" class="pick-map" style="height:240px;border-radius:var(--radius-sm);
+             border:1px solid var(--border);overflow:hidden"></div>
+        <div class="help">Click the map to place the pin, or drag it.</div>
+      </div>
+
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+        <div class="field" style="flex:1;min-width:110px;margin:0">
+          <label for="s-lat">Latitude</label>
+          <input type="number" id="s-lat" step="0.000001" min="-90" max="90">
+        </div>
+        <div class="field" style="flex:1;min-width:110px;margin:0">
+          <label for="s-lon">Longitude</label>
+          <input type="number" id="s-lon" step="0.000001" min="-180" max="180">
+        </div>
+        <button type="button" class="btn" id="s-gps">${icon('locate-fixed')} Use my location</button>
+      </div>
+
+      <button class="btn primary cta" id="s-save" style="margin-top:16px">
+        ${icon('save')}
+        <span>Save to database</span>
+      </button>
+    </div>`;
+
+  const latIn = $('#s-lat', card);
+  const lonIn = $('#s-lon', card);
+  const marker = initPicker($('#s-map', card), latIn, lonIn);
+
+  $('#s-gps', card).addEventListener('click', () => {
+    if (!navigator.geolocation) { toast('Location is not available in this browser.', 'error'); return; }
+    const btn = $('#s-gps', card);
+    btn.disabled = true;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        btn.disabled = false;
+        marker.set(pos.coords.latitude, pos.coords.longitude, true);
+      },
+      (err) => {
+        btn.disabled = false;
+        toast(err.code === 1 ? 'Location permission was denied.' : 'Could not get your location.', 'error');
+      },
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  });
+
+  [latIn, lonIn].forEach((el) => el.addEventListener('change', () => {
+    const la = parseFloat(latIn.value), lo = parseFloat(lonIn.value);
+    if (Number.isFinite(la) && Number.isFinite(lo)) marker.set(la, lo, true);
+  }));
+
+  $('#s-save', card).addEventListener('click', async () => {
+    const segName = $('#s-name', card).value.trim();
+    const lat = parseFloat(latIn.value), lon = parseFloat(lonIn.value);
+    if (!segName) { toast('Give the road segment a name.', 'error'); $('#s-name', card).focus(); return; }
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      toast('Pick a location on the map first.', 'error'); return;
+    }
+
+    const btn = $('#s-save', card);
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Saving…';
+    try {
+      const saved = await api.saveAnalysis(r.id, {
+        segment_name: segName, ward: $('#s-ward', card).value.trim(), lat, lon,
+      });
+      showSaved(card, saved, r);
+      toast('Saved to the database.', 'success');
+    } catch (err) {
+      btn.disabled = false;
+      btn.innerHTML = `${icon('save')}<span>Save to database</span>`;
+      paintIcons(btn);
+      toast(err.message || 'Could not save.', 'error');
+    }
+  });
+
+  paintIcons(card);
+}
+
+function showSaved(card, saved, preview) {
+  if (pickerMap) { pickerMap.remove(); pickerMap = null; }
+  const id = encodeURIComponent(saved.segment_id);
+  const moved = Math.abs((saved.scoring?.rpi ?? 0) - (preview.scoring?.rpi ?? 0)) > 0.05;
+  card.innerHTML = html`
+    <div class="card-head">
+      <h2>Saved</h2>
+      ${raw(bandChip(saved.scoring.band.code, saved.scoring.band.label))}
+    </div>
+    <div class="card-body">
+      <p style="margin:0 0 6px"><strong>${saved.segment_name}</strong> is now in the database
+        at ${num(saved.lat, 5)}, ${num(saved.lon, 5)}.</p>
+      ${moved ? html`<p class="muted" style="font-size:12px;margin:0">
+        This road has earlier inspections, so the stored score includes its deterioration
+        rate: RPI ${num(saved.scoring.rpi, 1)}.</p>` : ''}
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">
+        <a class="btn primary" href="#/map?focus=${id}">${icon('map')} View on map</a>
+        <a class="btn" href="#/segment/${id}">${icon('file-text')} Open segment record</a>
+      </div>
+    </div>`;
+  paintIcons(card);
+}
+
+/* A small Leaflet map with one draggable pin that keeps the lat/lon inputs in
+   step. Without Leaflet the inputs and the GPS button still work on their own. */
+function initPicker(el, latIn, lonIn) {
+  const sync = (la, lo) => { latIn.value = la.toFixed(6); lonIn.value = lo.toFixed(6); };
+
+  if (typeof window.L === 'undefined') {
+    el.innerHTML = '<div class="map-fallback">Map unavailable — type the coordinates or use your location.</div>';
+    return { set: (la, lo) => sync(la, lo) };
+  }
+
+  if (pickerMap) { pickerMap.remove(); pickerMap = null; }
+  const map = window.L.map(el, { scrollWheelZoom: false }).setView(DEFAULT_CENTRE, 11);
+  pickerMap = map;
+  window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19, attribution: '&copy; OpenStreetMap contributors',
+  }).addTo(map);
+
+  let pin = null;
+  const set = (la, lo, pan = false) => {
+    if (!pin) {
+      pin = window.L.marker([la, lo], { draggable: true }).addTo(map);
+      pin.on('dragend', () => { const p = pin.getLatLng(); sync(p.lat, p.lng); });
+    } else {
+      pin.setLatLng([la, lo]);
+    }
+    sync(la, lo);
+    if (pan) map.setView([la, lo], Math.max(map.getZoom(), 16));
+  };
+  map.on('click', (e) => set(e.latlng.lat, e.latlng.lng));
+
+  // Open on the existing network rather than an arbitrary city centre.
+  api.segments().then((res) => {
+    const pts = res.segments.filter((s) => s.lat && s.lon).map((s) => [s.lat, s.lon]);
+    if (pts.length && !pin) map.fitBounds(pts, { padding: [20, 20], maxZoom: 13 });
+  }).catch(() => {});
+  setTimeout(() => map.invalidateSize(), 120);
+
+  return { set };
 }

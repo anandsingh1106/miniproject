@@ -74,6 +74,11 @@ export const api = {
   analytics:   ()            => request('/api/analytics'),
   budget:      (amount)      => request('/api/budget?amount=' + encodeURIComponent(amount)),
   analyze:     (formData)    => request('/api/analyze', { method: 'POST', body: formData }),
+  saveAnalysis: (id, payload) => request('/api/analyze/' + encodeURIComponent(id) + '/save', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(payload),
+  }),
   rescore:     (payload)     => request('/api/rescore', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },

@@ -2,8 +2,8 @@
 
 import {
   $, api, meta, html, raw, currency, num, bandColor, damageChartRows,
-} from './core.js?v=25';
-import { hbar, line } from './charts.js?v=25';
+} from './core.js?v=26';
+import { hbar, line } from './charts.js?v=26';
 
 export async function analyticsView(mount) {
   const [a, m] = await Promise.all([api.analytics(), meta()]);

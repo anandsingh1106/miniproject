@@ -5,11 +5,11 @@
  * geographic scatter in SVG instead — less useful, but never a broken panel.
  */
 
-import { bandColor, bandGlyph, esc, num, currency } from './core.js?v=25';
+import { bandColor, bandGlyph, esc, num, currency } from './core.js?v=26';
 
 let mapInstance = null;
 
-export function renderMap(mount, segments) {
+export function renderMap(mount, segments, focusId = null) {
   const pts = segments.filter((s) => s.lat && s.lon);
   if (!pts.length) {
     mount.innerHTML = '<div class="map-fallback">No segments have coordinates yet.</div>';
@@ -55,13 +55,14 @@ export function renderMap(mount, segments) {
     mount.append(note);
   });
 
+  let focused = null;
   pts.forEach((s) => {
     const band = s.band_code || 'P4';
     // Radius carries RPI, colour carries the band. Both encode the same
     // ordering, which is redundancy rather than double-encoding — it keeps the
     // map readable for a colour-blind viewer.
     const r = 6 + ((s.rpi || 0) / 100) * 9;
-    window.L.circleMarker([s.lat, s.lon], {
+    const marker = window.L.circleMarker([s.lat, s.lon], {
       radius: r,
       color: 'var(--surface-1)',
       weight: 2,
@@ -87,11 +88,19 @@ export function renderMap(mount, segments) {
         <span style="color:var(--text-secondary)">Est. cost</span><strong>${esc(currency(s.total_cost))}</strong>
       </div>
       <a href="#/segment/${encodeURIComponent(s.id)}">Open segment →</a>`);
+    if (s.id === focusId) focused = marker;
   });
 
-  // Fit to the network, then let the tiles settle.
+  // Fit to the network, then let the tiles settle. A focused segment — one
+  // just saved from the analyse page — gets zoomed to and its popup opened.
   map.fitBounds(pts.map((s) => [s.lat, s.lon]), { padding: [34, 34], maxZoom: 13 });
-  setTimeout(() => map.invalidateSize(), 120);
+  setTimeout(() => {
+    map.invalidateSize();
+    if (focused) {
+      map.setView(focused.getLatLng(), 16);
+      focused.openPopup();
+    }
+  }, 120);
 }
 
 /* ---------- offline fallback ---------- */
