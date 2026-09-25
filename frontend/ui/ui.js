@@ -11,7 +11,7 @@
  * a missing asset never leaves a dialog that cannot be closed.
  */
 
-import { html, raw, esc, paintIcons, $$ } from '../js/core.js?v=25';
+import { html, raw, esc, paintIcons, $$ } from '../js/core.js?v=26';
 
 const FUI = () => window.FloatingUIDOM;
 const M = () => window.Motion;

@@ -3,12 +3,12 @@
 import {
   $, api, html, raw, currency, num, bandChip, bandColor,
   rpiMeter, relTime, emptyState, meta, icon, help,
-} from './core.js?v=25';
-import { hbar, donut } from './charts.js?v=25';
-import { renderMap } from './map.js?v=25';
-import { countUp, reveal } from '../ui/ui.js?v=25';
-import { peekSegment } from './segment-peek.js?v=25';
-import { profile } from './profile.js?v=25';
+} from './core.js?v=26';
+import { hbar, donut } from './charts.js?v=26';
+import { renderMap } from './map.js?v=26';
+import { countUp, reveal } from '../ui/ui.js?v=26';
+import { peekSegment } from './segment-peek.js?v=26';
+import { profile } from './profile.js?v=26';
 
 /* PCI bins. Thresholds match the backend's own pci_label(), so the donut and
    the "Fair"/"Poor" wording elsewhere in the app never disagree.

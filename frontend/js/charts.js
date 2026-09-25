@@ -7,8 +7,8 @@
  * labels, a hover layer on every chart and a table view behind each one.
  */
 
-import { esc, num, place } from './core.js?v=25';
-import { animate, reducedMotion } from '../ui/ui.js?v=25';
+import { esc, num, place } from './core.js?v=26';
+import { animate, reducedMotion } from '../ui/ui.js?v=26';
 
 const NS = 'http://www.w3.org/2000/svg';
 

@@ -4,10 +4,10 @@ import {
   $, $$, api, meta, html, raw, esc, currency, num, clamp, debounce,
   bandChip, bandColor, damageColor, damageChartRows, pciColor, relTime, dateStr,
   emptyState, rpiMeter, icon, help, downloadCSV, toast, paintIcons,
-} from './core.js?v=25';
-import { hbar, line, sparkline } from './charts.js?v=25';
-import { menu, reveal } from '../ui/ui.js?v=25';
-import { peekSegment } from './segment-peek.js?v=25';
+} from './core.js?v=26';
+import { hbar, line, sparkline } from './charts.js?v=26';
+import { menu, reveal } from '../ui/ui.js?v=26';
+import { peekSegment } from './segment-peek.js?v=26';
 
 /* ======================================================================
    Network register

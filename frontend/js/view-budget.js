@@ -3,8 +3,8 @@
 import {
   $, api, html, raw, currency, num, bandChip, bandColor, emptyState, debounce,
   icon, help, downloadCSV,
-} from './core.js?v=25';
-import { donut } from './charts.js?v=25';
+} from './core.js?v=26';
+import { donut } from './charts.js?v=26';
 
 const PRESETS = [
   { label: '₹5 Cr', value: 50_000_000 },

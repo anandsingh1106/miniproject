@@ -3,19 +3,19 @@
 import {
   $, api, html, raw, meta, initTheme, errorState, spinner,
   icon, paintIcons, wireHelp, debounce, num, esc, setTheme, currentTheme,
-} from './core.js?v=25';
-import { dashboardView } from './view-dashboard.js?v=25';
-import { analyzeView } from './view-analyze.js?v=25';
-import { networkView, segmentView } from './view-network.js?v=25';
-import { budgetView } from './view-budget.js?v=25';
-import { analyticsView } from './view-analytics.js?v=25';
-import { methodView } from './view-method.js?v=25';
+} from './core.js?v=26';
+import { dashboardView } from './view-dashboard.js?v=26';
+import { analyzeView } from './view-analyze.js?v=26';
+import { networkView, segmentView } from './view-network.js?v=26';
+import { budgetView } from './view-budget.js?v=26';
+import { analyticsView } from './view-analytics.js?v=26';
+import { methodView } from './view-method.js?v=26';
 import { initPresets, setPreset, setDensity, getPreset, getDensity, PRESETS, DENSITIES }
-  from '../ui/theme.js?v=25';
-import { menu, reveal } from '../ui/ui.js?v=25';
-import { componentsView } from './view-components.js?v=25';
-import { mapView } from './view-map.js?v=25';
-import { profile } from './profile.js?v=25';
+  from '../ui/theme.js?v=26';
+import { menu, reveal } from '../ui/ui.js?v=26';
+import { componentsView } from './view-components.js?v=26';
+import { mapView } from './view-map.js?v=26';
+import { profile } from './profile.js?v=26';
 
 const ROUTES = [
   { path: '/',          nav: 'Dashboard', icon: 'layout-dashboard', view: dashboardView },

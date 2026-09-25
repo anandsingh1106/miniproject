@@ -160,59 +160,40 @@ async def analyze(
 
     insp_id = str(uuid.uuid4())
     stored_path = None
+    ext = {"image/png": ".png", "image/webp": ".webp",
+           "image/bmp": ".bmp"}.get(image.content_type or "", ".jpg")
+    detection_info = {
+        "image_name": image.filename,
+        "engine": result.engine, "engine_label": result.engine_label,
+        "engine_kind": result.engine_kind,
+        "inference_ms": result.inference_ms,
+        "pavement_fraction": result.pavement_fraction,
+        "detections": dets,
+    }
 
     if save:
         # Persist the image so the inspection record stays auditable.
-        ext = {"image/png": ".png", "image/webp": ".webp",
-               "image/bmp": ".bmp"}.get(image.content_type or "", ".jpg")
-        fname = f"{insp_id}{ext}"
-        (config.UPLOAD_DIR / fname).write_bytes(raw)
-        stored_path = fname
-
+        stored_path = f"{insp_id}{ext}"
+        (config.UPLOAD_DIR / stored_path).write_bytes(raw)
         if segment_id:
-            existing = db.get_segment(segment_id)
-            if not existing:
-                db.upsert_segment({
-                    "id": segment_id,
-                    "name": segment_name or segment_id,
-                    "ward": ward, "city": seeder.CITY,
-                    "road_class": road_class, "surface_type": surface_type,
-                    "length_m": length_m, "lat": lat, "lon": lon,
-                    "aadt": aadt, "commercial_pct": commercial_pct,
-                    "last_resurfaced_years": last_resurfaced_years,
-                    "accidents_3yr": accidents_3yr,
-                    "drainage_quality": drainage_quality,
-                    "monsoon_exposure": monsoon_exposure,
-                    "is_emergency_route": int(is_emergency_route),
-                    "has_school_zone": int(has_school_zone),
-                    "public_reports": public_reports,
-                })
-
-        scoring_payload = scoring.to_dict()
-        scoring_payload["treatment_reason"] = why
-        scoring_payload["context"] = ctx.__dict__
-
-        db.insert_inspection({
-            "id": insp_id,
-            "segment_id": segment_id,
-            "created_at": db.now_iso(),
-            "image_path": stored_path,
-            "image_name": image.filename,
-            "engine": result.engine, "engine_label": result.engine_label,
-            "engine_kind": result.engine_kind,
-            "inference_ms": result.inference_ms,
-            "pavement_fraction": result.pavement_fraction,
-            "detections_json": json.dumps(dets),
-            "rpi": scoring.rpi, "band_code": scoring.band_code,
-            "band_label": scoring.band_label, "pci": scoring.pci,
-            "distress_score": scoring.components["distress"],
-            "dominant_damage": scoring.dominant_damage,
-            "scoring_json": json.dumps(scoring_payload),
-            "treatment": treatment, "treatment_name": est.treatment_name,
-            "total_cost": est.total_cost, "life_years": est.life_years,
-            "cost_json": json.dumps(est.to_dict()),
-            "notes": None,
-        })
+            _ensure_segment(segment_id, segment_name, ward, lat, lon, ctx,
+                            update_location=False)
+        _store_inspection(insp_id, segment_id, stored_path, detection_info,
+                          scoring, ctx, treatment, why, est)
+    else:
+        # Held back until the user presses Save, so a trial run never lands in
+        # the register. The stash carries everything needed to store it later
+        # without running detection again.
+        _prune_pending()
+        pdir = _pending_dir()
+        (pdir / f"{insp_id}{ext}").write_bytes(raw)
+        (pdir / f"{insp_id}.json").write_text(json.dumps({
+            "image_file": f"{insp_id}{ext}",
+            "segment_id": segment_id, "segment_name": segment_name,
+            "ward": ward, "lat": lat, "lon": lon,
+            "context": ctx.__dict__,
+            **detection_info,
+        }))
 
     return {
         "id": insp_id,
@@ -223,6 +204,154 @@ async def analyze(
             **result.to_dict(),
             "detections": dets,
         },
+        "scoring": scoring.to_dict(),
+        "treatment": {**est.to_dict(), "reason": why},
+    }
+
+
+PENDING_TTL_S = 24 * 3600
+_PENDING_ID = re.compile(r"^[0-9a-f-]{36}$")
+
+
+def _pending_dir():
+    # Resolved per call rather than at import, so a redirected DATA_DIR (the
+    # test suite does this) is honoured.
+    d = config.DATA_DIR / "pending"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _prune_pending() -> None:
+    """Drop analyses that were never saved, so the stash cannot grow forever."""
+    cutoff = datetime.now().timestamp() - PENDING_TTL_S
+    for f in _pending_dir().iterdir():
+        try:
+            if f.stat().st_mtime < cutoff:
+                f.unlink()
+        except OSError:
+            pass
+
+
+def _ensure_segment(segment_id: str, name: str | None, ward: str | None,
+                    lat: float | None, lon: float | None, ctx: SegmentContext,
+                    update_location: bool) -> None:
+    """Create the segment if it is new; optionally move an existing one's pin."""
+    existing = db.get_segment(segment_id)
+    if existing:
+        if update_location and lat is not None and lon is not None:
+            existing.update(lat=lat, lon=lon)
+            if ward:
+                existing["ward"] = ward
+            db.upsert_segment(existing)
+        return
+    db.upsert_segment({
+        "id": segment_id,
+        "name": name or segment_id,
+        "ward": ward, "city": seeder.CITY,
+        "road_class": ctx.road_class, "surface_type": ctx.surface_type,
+        "length_m": ctx.length_m, "lat": lat, "lon": lon,
+        "aadt": ctx.aadt, "commercial_pct": ctx.commercial_pct,
+        "last_resurfaced_years": ctx.last_resurfaced_years,
+        "accidents_3yr": ctx.accidents_3yr,
+        "drainage_quality": ctx.drainage_quality,
+        "monsoon_exposure": ctx.monsoon_exposure,
+        "is_emergency_route": int(ctx.is_emergency_route),
+        "has_school_zone": int(ctx.has_school_zone),
+        "public_reports": ctx.public_reports,
+    })
+
+
+def _store_inspection(insp_id, segment_id, image_path, info: dict, scoring,
+                      ctx: SegmentContext, treatment, why, est) -> None:
+    scoring_payload = scoring.to_dict()
+    scoring_payload["treatment_reason"] = why
+    scoring_payload["context"] = ctx.__dict__
+    db.insert_inspection({
+        "id": insp_id,
+        "segment_id": segment_id,
+        "created_at": db.now_iso(),
+        "image_path": image_path,
+        "image_name": info["image_name"],
+        "engine": info["engine"], "engine_label": info["engine_label"],
+        "engine_kind": info["engine_kind"],
+        "inference_ms": info["inference_ms"],
+        "pavement_fraction": info["pavement_fraction"],
+        "detections_json": json.dumps(info["detections"]),
+        "rpi": scoring.rpi, "band_code": scoring.band_code,
+        "band_label": scoring.band_label, "pci": scoring.pci,
+        "distress_score": scoring.components["distress"],
+        "dominant_damage": scoring.dominant_damage,
+        "scoring_json": json.dumps(scoring_payload),
+        "treatment": treatment, "treatment_name": est.treatment_name,
+        "total_cost": est.total_cost, "life_years": est.life_years,
+        "cost_json": json.dumps(est.to_dict()),
+        "notes": None,
+    })
+
+
+@app.post("/api/analyze/{insp_id}/save")
+def save_analysis(insp_id: str, payload: dict):
+    """Store an analysis that was run with save=false, pinned to a map location.
+
+    The score is recomputed against the chosen segment's history, because the
+    segment can be renamed here — and a road that has been inspected before
+    carries a deterioration rate the preview could not know about.
+    """
+    if not _PENDING_ID.match(insp_id):
+        raise HTTPException(404, "Analysis not found.")
+    meta_path = _pending_dir() / f"{insp_id}.json"
+    if not meta_path.is_file():
+        raise HTTPException(404, "Analysis not found or already saved. Run it again.")
+    pending = json.loads(meta_path.read_text())
+
+    name = (payload.get("segment_name") or pending.get("segment_name") or "").strip()
+    if not name:
+        raise HTTPException(400, "A segment name is required to save.")
+    try:
+        lat = float(payload["lat"])
+        lon = float(payload["lon"])
+    except (KeyError, TypeError, ValueError):
+        raise HTTPException(400, "A map location (lat and lon) is required to save.")
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        raise HTTPException(400, "That location is out of range.")
+    ward = (payload.get("ward") or pending.get("ward") or "").strip() or None
+    segment_id = "SEG-" + re.sub(r"[^A-Z0-9]+", "-", name.upper())[:22].strip("-")
+
+    ctx_in = dict(pending["context"])
+    ctx_in["prev_distress_score"], ctx_in["days_since_prev"] = None, None
+    prev = db.latest_inspection(segment_id)
+    if prev:
+        ctx_in["prev_distress_score"] = prev.get("distress_score")
+        try:
+            then = datetime.fromisoformat(prev["created_at"])
+            ctx_in["days_since_prev"] = max(1, (datetime.now(timezone.utc) - then).days)
+        except (ValueError, TypeError):
+            pass
+    ctx = SegmentContext(**ctx_in)
+    dets = pending["detections"]
+    scoring = compute_rpi(dets, ctx, pavement_fraction=pending["pavement_fraction"])
+    treatment, why = costing.recommend_treatment(scoring.pci, dets, ctx)
+    est = costing.estimate_cost(treatment, ctx, dets, scoring.pci)
+
+    image_file = pending["image_file"]
+    src = _pending_dir() / image_file
+    if src.is_file():
+        src.replace(config.UPLOAD_DIR / image_file)
+    else:
+        image_file = None
+
+    _ensure_segment(segment_id, name, ward, lat, lon, ctx, update_location=True)
+    _store_inspection(insp_id, segment_id, image_file, pending, scoring,
+                      ctx, treatment, why, est)
+    meta_path.unlink(missing_ok=True)
+
+    return {
+        "id": insp_id,
+        "saved": True,
+        "segment_id": segment_id,
+        "segment_name": name,
+        "lat": lat, "lon": lon,
+        "image_url": f"/api/image/{image_file}" if image_file else None,
         "scoring": scoring.to_dict(),
         "treatment": {**est.to_dict(), "reason": why},
     }
